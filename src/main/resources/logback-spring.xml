@@ -1,0 +1,189 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration scan="true" scanPeriod="10 seconds">
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+    <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
+
+    <statusListener class="com.zeroq.gateway.common.logback.PrintOnlyWarningLogbackStatusListener"/>
+
+    <springProfile name="local">
+        <property resource="logback-local.properties"/>
+    </springProfile>
+    <springProfile name="test">
+        <property resource="logback-test.properties"/>
+    </springProfile>
+    <springProfile name="dev">
+        <property resource="logback-dev.properties"/>
+    </springProfile>
+    <springProfile name="prod">
+        <property resource="logback-prod.properties"/>
+    </springProfile>
+
+    <property name="LOG_PATH" value="${log.config.path:-./logs}"/>
+    <property name="LOG_APP_ERROR_FILE" value="${LOG_PATH}/${log.config.app.error.name:-zeroq_sensor_gateway_app_error}"/>
+    <property name="LOG_APP_WARN_FILE" value="${LOG_PATH}/${log.config.app.warn.name:-zeroq_sensor_gateway_app_warn}"/>
+    <property name="LOG_SQL_ERROR_FILE" value="${LOG_PATH}/${log.config.sql.error.name:-zeroq_sensor_gateway_sql_error}"/>
+    <property name="LOG_SQL_TRACE_FILE" value="${LOG_PATH}/${log.config.sql.trace.name:-zeroq_sensor_gateway_sql_trace}"/>
+
+    <appender name="APP_ERROR_APPENDER"
+              class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <filter class="ch.qos.logback.classic.filter.LevelFilter">
+            <level>ERROR</level>
+            <onMatch>ACCEPT</onMatch>
+            <onMismatch>DENY</onMismatch>
+        </filter>
+        <encoder>
+            <pattern>${FILE_LOG_PATTERN}</pattern>
+        </encoder>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_APP_ERROR_FILE}.%d{yyyy-MM-dd}_%i.log</fileNamePattern>
+            <maxFileSize>300MB</maxFileSize>
+            <maxHistory>90</maxHistory>
+            <totalSizeCap>3GB</totalSizeCap>
+        </rollingPolicy>
+    </appender>
+
+    <appender name="APP_WARN_APPENDER"
+              class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <filter class="ch.qos.logback.classic.filter.LevelFilter">
+            <level>WARN</level>
+            <onMatch>ACCEPT</onMatch>
+            <onMismatch>DENY</onMismatch>
+        </filter>
+        <encoder>
+            <pattern>${FILE_LOG_PATTERN}</pattern>
+        </encoder>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_APP_WARN_FILE}.%d{yyyy-MM-dd}_%i.log</fileNamePattern>
+            <maxFileSize>100MB</maxFileSize>
+            <maxHistory>30</maxHistory>
+            <totalSizeCap>1GB</totalSizeCap>
+        </rollingPolicy>
+    </appender>
+
+    <appender name="SQL_ERROR_APPENDER"
+              class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <filter class="ch.qos.logback.classic.filter.LevelFilter">
+            <level>ERROR</level>
+            <onMatch>ACCEPT</onMatch>
+            <onMismatch>DENY</onMismatch>
+        </filter>
+        <encoder>
+            <pattern>${FILE_LOG_PATTERN}</pattern>
+        </encoder>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_SQL_ERROR_FILE}.%d{yyyy-MM-dd}_%i.log</fileNamePattern>
+            <maxFileSize>300MB</maxFileSize>
+            <maxHistory>90</maxHistory>
+            <totalSizeCap>3GB</totalSizeCap>
+        </rollingPolicy>
+    </appender>
+
+    <appender name="SQL_TRACE_APPENDER"
+              class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <filter class="com.zeroq.gateway.common.logback.filter.CustomLogbackFilter">
+            <levels>TRACE|DEBUG|INFO|WARN</levels>
+        </filter>
+        <encoder>
+            <pattern>${FILE_LOG_PATTERN}</pattern>
+        </encoder>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_SQL_TRACE_FILE}.%d{yyyy-MM-dd}_%i.log</fileNamePattern>
+            <maxFileSize>100MB</maxFileSize>
+            <maxHistory>30</maxHistory>
+            <totalSizeCap>1GB</totalSizeCap>
+        </rollingPolicy>
+    </appender>
+
+    <logger name="org.springframework.context.support.PostProcessorRegistrationDelegate$BeanPostProcessorChecker"
+            level="ERROR"/>
+
+    <springProfile name="local">
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+            <appender-ref ref="APP_ERROR_APPENDER"/>
+            <appender-ref ref="APP_WARN_APPENDER"/>
+        </root>
+
+        <logger name="org.hibernate.SQL" level="DEBUG" additivity="false">
+            <appender-ref ref="CONSOLE"/>
+            <appender-ref ref="SQL_ERROR_APPENDER"/>
+            <appender-ref ref="SQL_TRACE_APPENDER"/>
+        </logger>
+
+        <logger name="org.hibernate.orm.jdbc.bind" level="TRACE" additivity="false">
+            <appender-ref ref="CONSOLE"/>
+            <appender-ref ref="SQL_ERROR_APPENDER"/>
+            <appender-ref ref="SQL_TRACE_APPENDER"/>
+        </logger>
+
+        <logger name="org.hibernate.type" level="INFO" additivity="false">
+            <appender-ref ref="CONSOLE"/>
+            <appender-ref ref="SQL_ERROR_APPENDER"/>
+            <appender-ref ref="SQL_TRACE_APPENDER"/>
+        </logger>
+    </springProfile>
+
+    <springProfile name="test">
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+        </root>
+
+        <logger name="org.hibernate.SQL" level="DEBUG" additivity="false">
+            <appender-ref ref="CONSOLE"/>
+        </logger>
+
+        <logger name="org.hibernate.orm.jdbc.bind" level="TRACE" additivity="false">
+            <appender-ref ref="CONSOLE"/>
+        </logger>
+
+        <logger name="org.hibernate.type" level="INFO" additivity="false">
+            <appender-ref ref="CONSOLE"/>
+        </logger>
+    </springProfile>
+
+    <springProfile name="dev">
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+            <appender-ref ref="APP_WARN_APPENDER"/>
+            <appender-ref ref="APP_ERROR_APPENDER"/>
+        </root>
+
+        <logger name="org.hibernate.SQL" level="DEBUG" additivity="false">
+            <appender-ref ref="SQL_TRACE_APPENDER"/>
+            <appender-ref ref="SQL_ERROR_APPENDER"/>
+        </logger>
+
+        <logger name="org.hibernate.orm.jdbc.bind" level="TRACE" additivity="false">
+            <appender-ref ref="SQL_TRACE_APPENDER"/>
+            <appender-ref ref="SQL_ERROR_APPENDER"/>
+        </logger>
+
+        <logger name="org.hibernate.type" level="INFO" additivity="false">
+            <appender-ref ref="SQL_TRACE_APPENDER"/>
+            <appender-ref ref="SQL_ERROR_APPENDER"/>
+        </logger>
+    </springProfile>
+
+    <springProfile name="prod">
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+            <appender-ref ref="APP_WARN_APPENDER"/>
+            <appender-ref ref="APP_ERROR_APPENDER"/>
+        </root>
+
+        <logger name="org.hibernate.SQL" level="DEBUG" additivity="false">
+            <appender-ref ref="SQL_TRACE_APPENDER"/>
+            <appender-ref ref="SQL_ERROR_APPENDER"/>
+        </logger>
+
+        <logger name="org.hibernate.orm.jdbc.bind" level="TRACE" additivity="false">
+            <appender-ref ref="SQL_TRACE_APPENDER"/>
+            <appender-ref ref="SQL_ERROR_APPENDER"/>
+        </logger>
+
+        <logger name="org.hibernate.type" level="INFO" additivity="false">
+            <appender-ref ref="SQL_TRACE_APPENDER"/>
+            <appender-ref ref="SQL_ERROR_APPENDER"/>
+        </logger>
+    </springProfile>
+</configuration>

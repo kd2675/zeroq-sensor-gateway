@@ -1,0 +1,47 @@
+spring:
+  application:
+    name: zeroq-sensor-gateway
+  profiles:
+    active: local
+    group:
+      local: local
+      test: test
+      dev: dev
+      prod: prod
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
+  jackson:
+    serialization:
+      FAIL_ON_EMPTY_BEANS: false
+    default-property-inclusion: non_null
+
+management:
+  endpoints:
+    web:
+      base-path: /actuator
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+
+gateway:
+  node:
+    gateway-id: ${GATEWAY_NODE_ID:GW-STORE-001}
+    local-api-key: ${GATEWAY_LOCAL_API_KEY:change-me}
+  cloud:
+    base-url: ${GATEWAY_CLOUD_BASE_URL:http://localhost:8080}
+    auth-token: ${GATEWAY_CLOUD_AUTH_TOKEN:}
+    connect-timeout-ms: ${GATEWAY_CLOUD_CONNECT_TIMEOUT_MS:3000}
+    read-timeout-ms: ${GATEWAY_CLOUD_READ_TIMEOUT_MS:10000}
+  sync:
+    batch-size: ${GATEWAY_SYNC_BATCH_SIZE:100}
+    max-retry: ${GATEWAY_SYNC_MAX_RETRY:10}
+    ingest-fixed-delay-ms: ${GATEWAY_SYNC_INGEST_DELAY_MS:5000}
+    command-poll-fixed-delay-ms: ${GATEWAY_SYNC_COMMAND_POLL_DELAY_MS:10000}
+    ack-fixed-delay-ms: ${GATEWAY_SYNC_ACK_DELAY_MS:5000}
