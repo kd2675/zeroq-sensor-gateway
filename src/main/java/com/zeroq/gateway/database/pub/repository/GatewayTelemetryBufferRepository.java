@@ -4,6 +4,7 @@ import com.zeroq.gateway.database.pub.entity.BufferSyncStatus;
 import com.zeroq.gateway.database.pub.entity.GatewayTelemetryBuffer;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 
@@ -14,4 +15,10 @@ public interface GatewayTelemetryBufferRepository extends JpaRepository<GatewayT
     );
 
     long countBySyncStatus(BufferSyncStatus status);
+
+    long countBySyncStatusAndRetryCountGreaterThanEqual(BufferSyncStatus status, int retryCount);
+
+    boolean existsBySensorIdAndSequenceNoAndMeasuredAt(String sensorId, Long sequenceNo, LocalDateTime measuredAt);
+
+    boolean existsBySensorIdAndMeasuredAt(String sensorId, LocalDateTime measuredAt);
 }

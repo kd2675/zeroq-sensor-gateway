@@ -38,7 +38,11 @@ CREATE TABLE IF NOT EXISTS gateway_telemetry_buffer (
     last_attempt_at DATETIME NULL,
     error_message VARCHAR(500) NULL,
     create_date DATETIME NOT NULL,
-    update_date DATETIME NOT NULL
+    update_date DATETIME NOT NULL,
+    CONSTRAINT uk_gateway_telemetry_buffer_sensor_sequence_measured
+        UNIQUE (sensor_id, sequence_no, measured_at),
+    CONSTRAINT uk_gateway_telemetry_buffer_sensor_measured
+        UNIQUE (sensor_id, measured_at)
 );
 
 CREATE INDEX idx_gateway_telemetry_buffer_status
@@ -60,7 +64,9 @@ CREATE TABLE IF NOT EXISTS gateway_heartbeat_buffer (
     last_attempt_at DATETIME NULL,
     error_message VARCHAR(500) NULL,
     create_date DATETIME NOT NULL,
-    update_date DATETIME NOT NULL
+    update_date DATETIME NOT NULL,
+    CONSTRAINT uk_gateway_heartbeat_buffer_sensor_heartbeat
+        UNIQUE (sensor_id, heartbeat_at)
 );
 
 CREATE INDEX idx_gateway_heartbeat_buffer_status

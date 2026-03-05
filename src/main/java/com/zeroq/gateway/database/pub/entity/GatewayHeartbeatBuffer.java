@@ -10,6 +10,11 @@ import java.time.LocalDateTime;
 @Table(name = "gateway_heartbeat_buffer", indexes = {
         @Index(name = "idx_gateway_heartbeat_buffer_status", columnList = "sync_status,retry_count,id"),
         @Index(name = "idx_gateway_heartbeat_buffer_sensor", columnList = "sensor_id,heartbeat_at")
+}, uniqueConstraints = {
+        @UniqueConstraint(
+                name = "uk_gateway_heartbeat_buffer_sensor_heartbeat",
+                columnNames = {"sensor_id", "heartbeat_at"}
+        )
 })
 @Getter
 @Setter

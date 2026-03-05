@@ -10,6 +10,15 @@ import java.time.LocalDateTime;
 @Table(name = "gateway_telemetry_buffer", indexes = {
         @Index(name = "idx_gateway_telemetry_buffer_status", columnList = "sync_status,retry_count,id"),
         @Index(name = "idx_gateway_telemetry_buffer_sensor", columnList = "sensor_id,measured_at")
+}, uniqueConstraints = {
+        @UniqueConstraint(
+                name = "uk_gateway_telemetry_buffer_sensor_sequence_measured",
+                columnNames = {"sensor_id", "sequence_no", "measured_at"}
+        ),
+        @UniqueConstraint(
+                name = "uk_gateway_telemetry_buffer_sensor_measured",
+                columnNames = {"sensor_id", "measured_at"}
+        )
 })
 @Getter
 @Setter

@@ -13,10 +13,13 @@ import com.zeroq.gateway.service.ingest.vo.LocalHeartbeatRequest;
 import com.zeroq.gateway.service.ingest.vo.LocalIngestResponse;
 import com.zeroq.gateway.service.ingest.vo.LocalTelemetryRequest;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class LocalSensorIngestService {
@@ -28,6 +31,14 @@ public class LocalSensorIngestService {
     @Transactional
     public LocalIngestResponse ingestTelemetry(LocalTelemetryRequest request) {
         upsertManagedSensor(request.getSensorId(), request.getPlaceId());
+
+        if (isDuplicateTelemetry(request)) {
+            return LocalIngestResponse.builder()
+                    .telemetryAccepted(0)
+                    .heartbeatAccepted(0)
+                    .duplicateIgnored(1)
+                    .build();
+        }
 
         GatewayTelemetryBuffer buffer = GatewayTelemetryBuffer.builder()
                 .sensorId(request.getSensorId())
@@ -46,16 +57,39 @@ public class LocalSensorIngestService {
                 .retryCount(0)
                 .build();
 
-        gatewayTelemetryBufferRepository.save(buffer);
+        try {
+            gatewayTelemetryBufferRepository.save(buffer);
+        } catch (DataIntegrityViolationException ex) {
+            log.debug("Duplicate telemetry dropped by unique key. sensorId={}, sequenceNo={}, measuredAt={}",
+                    request.getSensorId(), request.getSequenceNo(), request.getMeasuredAt());
+            return LocalIngestResponse.builder()
+                    .telemetryAccepted(0)
+                    .heartbeatAccepted(0)
+                    .duplicateIgnored(1)
+                    .build();
+        }
+
         return LocalIngestResponse.builder()
                 .telemetryAccepted(1)
                 .heartbeatAccepted(0)
+                .duplicateIgnored(0)
                 .build();
     }
 
     @Transactional
     public LocalIngestResponse ingestHeartbeat(LocalHeartbeatRequest request) {
         upsertManagedSensor(request.getSensorId(), request.getPlaceId());
+
+        if (gatewayHeartbeatBufferRepository.existsBySensorIdAndHeartbeatAt(
+                request.getSensorId(),
+                request.getHeartbeatAt()
+        )) {
+            return LocalIngestResponse.builder()
+                    .telemetryAccepted(0)
+                    .heartbeatAccepted(0)
+                    .duplicateIgnored(1)
+                    .build();
+        }
 
         GatewayHeartbeatBuffer buffer = GatewayHeartbeatBuffer.builder()
                 .sensorId(request.getSensorId())
@@ -68,10 +102,22 @@ public class LocalSensorIngestService {
                 .retryCount(0)
                 .build();
 
-        gatewayHeartbeatBufferRepository.save(buffer);
+        try {
+            gatewayHeartbeatBufferRepository.save(buffer);
+        } catch (DataIntegrityViolationException ex) {
+            log.debug("Duplicate heartbeat dropped by unique key. sensorId={}, heartbeatAt={}",
+                    request.getSensorId(), request.getHeartbeatAt());
+            return LocalIngestResponse.builder()
+                    .telemetryAccepted(0)
+                    .heartbeatAccepted(0)
+                    .duplicateIgnored(1)
+                    .build();
+        }
+
         return LocalIngestResponse.builder()
                 .telemetryAccepted(0)
                 .heartbeatAccepted(1)
+                .duplicateIgnored(0)
                 .build();
     }
 
@@ -79,21 +125,40 @@ public class LocalSensorIngestService {
     public LocalIngestResponse ingestBatch(LocalBatchIngestRequest request) {
         int telemetryAccepted = 0;
         int heartbeatAccepted = 0;
+        int duplicateIgnored = 0;
 
         for (LocalTelemetryRequest telemetry : request.getTelemetries()) {
-            ingestTelemetry(telemetry);
-            telemetryAccepted++;
+            LocalIngestResponse response = ingestTelemetry(telemetry);
+            telemetryAccepted += response.getTelemetryAccepted();
+            duplicateIgnored += response.getDuplicateIgnored();
         }
 
         for (LocalHeartbeatRequest heartbeat : request.getHeartbeats()) {
-            ingestHeartbeat(heartbeat);
-            heartbeatAccepted++;
+            LocalIngestResponse response = ingestHeartbeat(heartbeat);
+            heartbeatAccepted += response.getHeartbeatAccepted();
+            duplicateIgnored += response.getDuplicateIgnored();
         }
 
         return LocalIngestResponse.builder()
                 .telemetryAccepted(telemetryAccepted)
                 .heartbeatAccepted(heartbeatAccepted)
+                .duplicateIgnored(duplicateIgnored)
                 .build();
+    }
+
+    private boolean isDuplicateTelemetry(LocalTelemetryRequest request) {
+        if (request.getSequenceNo() != null) {
+            return gatewayTelemetryBufferRepository.existsBySensorIdAndSequenceNoAndMeasuredAt(
+                    request.getSensorId(),
+                    request.getSequenceNo(),
+                    request.getMeasuredAt()
+            );
+        }
+
+        return gatewayTelemetryBufferRepository.existsBySensorIdAndMeasuredAt(
+                request.getSensorId(),
+                request.getMeasuredAt()
+        );
     }
 
     private void upsertManagedSensor(String sensorId, Long placeId) {

@@ -8,4 +8,5 @@ import lombok.Getter;
 public class LocalIngestResponse {
     private int telemetryAccepted;
     private int heartbeatAccepted;
+    private int duplicateIgnored;
 }

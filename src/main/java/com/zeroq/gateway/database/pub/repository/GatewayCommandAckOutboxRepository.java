@@ -14,4 +14,6 @@ public interface GatewayCommandAckOutboxRepository extends JpaRepository<Gateway
     );
 
     long countBySyncStatus(BufferSyncStatus status);
+
+    long countBySyncStatusAndRetryCountGreaterThanEqual(BufferSyncStatus status, int retryCount);
 }

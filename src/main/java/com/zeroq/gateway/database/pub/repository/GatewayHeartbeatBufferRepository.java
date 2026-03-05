@@ -4,6 +4,7 @@ import com.zeroq.gateway.database.pub.entity.BufferSyncStatus;
 import com.zeroq.gateway.database.pub.entity.GatewayHeartbeatBuffer;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 
@@ -14,4 +15,8 @@ public interface GatewayHeartbeatBufferRepository extends JpaRepository<GatewayH
     );
 
     long countBySyncStatus(BufferSyncStatus status);
+
+    long countBySyncStatusAndRetryCountGreaterThanEqual(BufferSyncStatus status, int retryCount);
+
+    boolean existsBySensorIdAndHeartbeatAt(String sensorId, LocalDateTime heartbeatAt);
 }

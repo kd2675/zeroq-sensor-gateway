@@ -8,9 +8,12 @@ import lombok.Getter;
 public class GatewayQueueStatusResponse {
     private long telemetryPending;
     private long telemetryFailed;
+    private long telemetryExhausted;
     private long heartbeatPending;
     private long heartbeatFailed;
+    private long heartbeatExhausted;
     private long commandDispatchPending;
     private long commandAckPending;
     private long commandAckFailed;
+    private long commandAckExhausted;
 }
