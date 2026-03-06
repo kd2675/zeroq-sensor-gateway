@@ -1,16 +1,55 @@
-# Getting Started
+# zeroq-sensor-gateway Help
 
-### Reference Documentation
+엣지 게이트웨이 개발 시 자주 쓰는 명령과 설정만 정리합니다.
 
-For further reference, please consider the following sections:
+## Build / Test
 
-* [Official Gradle documentation](https://docs.gradle.org)
-* [Spring Boot Gradle Plugin Reference Guide](https://docs.spring.io/spring-boot/4.0.2/gradle-plugin)
-* [Create an OCI image](https://docs.spring.io/spring-boot/4.0.2/gradle-plugin/packaging-oci-image.html)
+```bash
+./gradlew :zeroq-sensor-gateway:compileJava
+./gradlew :zeroq-sensor-gateway:test
+```
 
-### Additional Links
+## Run
 
-These additional references should also help you:
+```bash
+./gradlew :zeroq-sensor-gateway:bootRun
+./gradlew :zeroq-sensor-gateway:bootRun --args='--spring.profiles.active=local'
+./gradlew :zeroq-sensor-gateway:bootRun --args='--spring.profiles.active=dev'
+./gradlew :zeroq-sensor-gateway:bootRun --args='--spring.profiles.active=prod'
+./gradlew :zeroq-sensor-gateway:bootRun --args='--spring.profiles.active=test'
+```
 
-* [Gradle Build Scans – insights for your project's build](https://scans.gradle.com#gradle)
+## Ports
 
+- `local/dev`: `20191`
+- `prod`: `10191`
+- `test`: `30191`
+
+## Main Paths
+
+- ingest: `/api/zeroq/gateway/v1/local/ingest`
+- commands: `/api/zeroq/gateway/v1/local/commands`
+- monitoring: `/api/zeroq/gateway/v1/monitoring`
+
+## Key Config
+
+- `GATEWAY_NODE_ID`
+- `GATEWAY_LOCAL_API_KEY`
+- `GATEWAY_CLOUD_BASE_URL`
+- `GATEWAY_CLOUD_AUTH_TOKEN`
+- `GATEWAY_SYNC_BATCH_SIZE`
+- `GATEWAY_SYNC_MAX_RETRY`
+- `GATEWAY_SYNC_INGEST_DELAY_MS`
+- `GATEWAY_SYNC_COMMAND_POLL_DELAY_MS`
+- `GATEWAY_SYNC_ACK_DELAY_MS`
+
+## Storage
+
+- local H2 file: `./data/zeroq_sensor_gateway`
+- prod H2 file: `./data/zeroq_sensor_gateway_prod`
+
+## Notes
+
+- 로컬 API는 `GatewayApiKeyGuard`를 통해 보호됩니다.
+- cloud sync 동작을 바꾸면 `gateway.sync.*` 설정과 문서를 함께 업데이트합니다.
+- 현재 테스트 범위는 얕으므로 sync 정책을 건드릴 때는 서비스 테스트 추가를 우선 검토합니다.

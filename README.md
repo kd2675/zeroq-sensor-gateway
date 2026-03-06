@@ -1,55 +1,63 @@
 # zeroq-sensor-gateway
 
-매장 오프라인 센서망과 ZeroQ 클라우드 사이를 연결하는 엣지 게이트웨이 서버입니다.
+매장 로컬 센서망과 ZeroQ 클라우드 센서 서버 사이를 연결하는 엣지 게이트웨이입니다. 로컬 ingest 버퍼, command pull, ACK outbox, 주기적 sync를 담당합니다.
 
 ## 역할
-- 로컬 센서 이벤트(telemetry/heartbeat) 수신
-- 로컬 DB 버퍼 저장(오프라인 지속)
-- 클라우드(`zeroq-back-sensor`)로 배치/개별 재전송
-- 클라우드 명령 pull 후 로컬 실행 큐 제공
-- 로컬 ACK를 outbox에 저장 후 클라우드 ACK 동기화
 
-## 아키텍처
-- 센서 -> `zeroq-sensor-gateway`(로컬)
-- `zeroq-sensor-gateway` -> `cloud-back-server` -> `zeroq-back-sensor` (HTTP)
-- 클라우드 명령은 pull(`pending`) 방식으로 수집
+- 로컬 telemetry, heartbeat, batch ingest 수신
+- H2 기반 로컬 버퍼 저장
+- `cloud-back-server` 경유 클라우드 재전송
+- pending command pull 후 로컬 실행 큐 제공
+- ACK outbox를 클라우드로 동기화
+- queue status와 강제 sync 모니터링 제공
+
+## API 베이스 경로
+
+- `/api/zeroq/gateway/v1/local/ingest`
+- `/api/zeroq/gateway/v1/local/commands`
+- `/api/zeroq/gateway/v1/monitoring`
 
 ## 보안
-- 로컬 API는 `X-Gateway-Key` 헤더 필수
-- 값: `gateway.node.local-api-key`
 
-## 로그
-- `logback-spring.xml` 적용
-- 커스텀 클래스:
-  - `com.zeroq.gateway.common.logback.PrintOnlyWarningLogbackStatusListener`
-  - `com.zeroq.gateway.common.logback.filter.CustomLogbackFilter`
-- 기본 로그 파일: `${log.config.path}/zeroq_sensor_gateway.log`
-- 프로파일별 경로:
-  - local/test: `./logs`
-  - dev: `/data/logs/dev/zeroq_sensor_gateway`
-  - prod: `/data/logs/prod/zeroq_sensor_gateway`
+- 로컬 API는 `X-Gateway-Key` 헤더를 요구합니다.
+- 키는 `gateway.node.local-api-key` 또는 `GATEWAY_LOCAL_API_KEY`에서 관리합니다.
 
-## 주요 엔드포인트
-- `POST /api/zeroq/gateway/v1/local/ingest/telemetry`
-- `POST /api/zeroq/gateway/v1/local/ingest/heartbeat`
-- `POST /api/zeroq/gateway/v1/local/ingest/batch`
-- `GET /api/zeroq/gateway/v1/local/commands/pending`
-- `PATCH /api/zeroq/gateway/v1/local/commands/{cloudCommandId}/dispatched`
-- `POST /api/zeroq/gateway/v1/local/commands/{cloudCommandId}/ack`
-- `GET /api/zeroq/gateway/v1/monitoring/queue-status`
-- `POST /api/zeroq/gateway/v1/monitoring/sync-now`
+## 실행 프로필과 포트
 
-## DB 스크립트
-- DDL: `src/main/resources/db/ddl/zeroq_sensor_gateway_all.sql`
-- Seed: `src/main/resources/db/seed/zeroq_sensor_gateway_seed.sql`
+| Profile | Port |
+|---|---:|
+| `local` | `20191` |
+| `dev` | `20191` |
+| `prod` | `10191` |
+| `test` | `30191` |
 
-## 실행
+## 저장소와 동기화
+
+- local DB: `jdbc:h2:file:./data/zeroq_sensor_gateway`
+- prod DB: `jdbc:h2:file:./data/zeroq_sensor_gateway_prod`
+- cloud base URL 기본값: `http://localhost:8080`
+- 기본 sync delay:
+  - ingest: `5000ms`
+  - command poll: `10000ms`
+  - ack: `5000ms`
+
+## 실행과 검증
+
 ```bash
 ./gradlew :zeroq-sensor-gateway:bootRun
-```
-
-## 빌드/테스트
-```bash
+./gradlew :zeroq-sensor-gateway:bootRun --args='--spring.profiles.active=local'
 ./gradlew :zeroq-sensor-gateway:compileJava
 ./gradlew :zeroq-sensor-gateway:test
 ```
+
+## 데이터와 로그
+
+- DDL: `src/main/resources/db/ddl/zeroq_sensor_gateway_all.sql`
+- 시드: `src/main/resources/db/seed/zeroq_sensor_gateway_seed.sql`
+- 로그 설정: `src/main/resources/logback-spring.xml`
+- 로그 경로: local/test `./logs`, dev `/data/logs/dev/zeroq_sensor_gateway`, prod `/data/logs/prod/zeroq_sensor_gateway`
+
+## 참고
+
+- 클라우드 연동은 `infrastructure/cloud/CloudSensorApiClient`가 담당합니다.
+- 테스트는 존재하지만 범위가 제한적이므로 sync 규칙과 command 처리 변경 시 회귀 테스트 보강이 필요합니다.
