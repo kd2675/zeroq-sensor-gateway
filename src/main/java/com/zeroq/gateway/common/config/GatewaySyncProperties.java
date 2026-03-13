@@ -15,4 +15,5 @@ public class GatewaySyncProperties {
     private long ingestFixedDelayMs = 5000L;
     private long commandPollFixedDelayMs = 10000L;
     private long ackFixedDelayMs = 5000L;
+    private long statusFixedDelayMs = 15000L;
 }

@@ -48,6 +48,28 @@ class LocalSensorIngestServiceTests {
     }
 
     @Test
+    void shouldStoreSeatOccupancyTelemetryWithoutDistance() {
+        LocalTelemetryRequest request = new LocalTelemetryRequest();
+        request.setSensorId("SEAT-" + System.nanoTime());
+        request.setPlaceId(201L);
+        request.setMeasuredAt(LocalDateTime.now());
+        request.setOccupied(true);
+        request.setPadLeftValue(640);
+        request.setPadRightValue(612);
+
+        LocalIngestResponse response = localSensorIngestService.ingestTelemetry(request);
+
+        assertThat(response.getTelemetryAccepted()).isEqualTo(1);
+        assertThat(gatewayTelemetryBufferRepository.findAll())
+                .anySatisfy(buffer -> {
+                    assertThat(buffer.getSensorId()).isEqualTo(request.getSensorId());
+                    assertThat(buffer.getOccupied()).isTrue();
+                    assertThat(buffer.getPadLeftValue()).isEqualTo(640);
+                    assertThat(buffer.getPadRightValue()).isEqualTo(612);
+                });
+    }
+
+    @Test
     void shouldStoreHeartbeatBuffer() {
         LocalHeartbeatRequest request = new LocalHeartbeatRequest();
         request.setSensorId("SN-H-" + System.nanoTime());

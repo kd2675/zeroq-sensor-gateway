@@ -45,8 +45,17 @@ public class GatewayTelemetryBuffer extends CommonDateEntity {
     @Column(name = "measured_at", nullable = false)
     private LocalDateTime measuredAt;
 
-    @Column(name = "distance_cm", nullable = false)
+    @Column(name = "distance_cm")
     private Double distanceCm;
+
+    @Column(name = "occupied")
+    private Boolean occupied;
+
+    @Column(name = "pad_left_value")
+    private Integer padLeftValue;
+
+    @Column(name = "pad_right_value")
+    private Integer padRightValue;
 
     @Column(name = "confidence")
     private Double confidence;

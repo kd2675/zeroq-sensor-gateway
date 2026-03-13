@@ -10,4 +10,6 @@ public interface GatewayManagedSensorRepository extends JpaRepository<GatewayMan
     Optional<GatewayManagedSensor> findBySensorId(String sensorId);
 
     List<GatewayManagedSensor> findAllByActiveTrueOrderBySensorIdAsc();
+
+    long countByActiveTrue();
 }

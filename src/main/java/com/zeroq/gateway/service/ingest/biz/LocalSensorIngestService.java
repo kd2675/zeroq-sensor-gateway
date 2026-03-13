@@ -1,6 +1,7 @@
 package com.zeroq.gateway.service.ingest.biz;
 
 import com.zeroq.gateway.common.config.GatewayNodeProperties;
+import com.zeroq.gateway.common.exception.GatewayException;
 import com.zeroq.gateway.database.pub.entity.BufferSyncStatus;
 import com.zeroq.gateway.database.pub.entity.GatewayHeartbeatBuffer;
 import com.zeroq.gateway.database.pub.entity.GatewayManagedSensor;
@@ -30,6 +31,7 @@ public class LocalSensorIngestService {
 
     @Transactional
     public LocalIngestResponse ingestTelemetry(LocalTelemetryRequest request) {
+        validateTelemetryPayload(request);
         upsertManagedSensor(request.getSensorId(), request.getPlaceId());
 
         if (isDuplicateTelemetry(request)) {
@@ -47,6 +49,9 @@ public class LocalSensorIngestService {
                 .gatewayId(gatewayNodeProperties.getGatewayId())
                 .measuredAt(request.getMeasuredAt())
                 .distanceCm(request.getDistanceCm())
+                .occupied(request.getOccupied())
+                .padLeftValue(request.getPadLeftValue())
+                .padRightValue(request.getPadRightValue())
                 .confidence(request.getConfidence())
                 .temperatureC(request.getTemperatureC())
                 .humidityPercent(request.getHumidityPercent())
@@ -159,6 +164,15 @@ public class LocalSensorIngestService {
                 request.getSensorId(),
                 request.getMeasuredAt()
         );
+    }
+
+    private void validateTelemetryPayload(LocalTelemetryRequest request) {
+        if (request.getDistanceCm() == null && request.getOccupied() == null) {
+            throw new GatewayException.ValidationException("Either distanceCm or occupied is required");
+        }
+        if (request.getDistanceCm() != null && request.getDistanceCm() <= 0) {
+            throw new GatewayException.ValidationException("distanceCm must be positive");
+        }
     }
 
     private void upsertManagedSensor(String sensorId, Long placeId) {

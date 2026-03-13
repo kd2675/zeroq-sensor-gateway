@@ -34,9 +34,12 @@ gateway:
   node:
     gateway-id: ${GATEWAY_NODE_ID:GW-STORE-001}
     local-api-key: ${GATEWAY_LOCAL_API_KEY:change-me}
+    firmware-version: ${GATEWAY_NODE_FIRMWARE_VERSION:}
+    ip-address: ${GATEWAY_NODE_IP_ADDRESS:}
   cloud:
     base-url: ${GATEWAY_CLOUD_BASE_URL:http://localhost:8080}
     auth-token: ${GATEWAY_CLOUD_AUTH_TOKEN:}
+    service-auth-secret: ${ZEROQ_GATEWAY_SHARED_SECRET:zeroq-gateway-local-shared-secret}
     connect-timeout-ms: ${GATEWAY_CLOUD_CONNECT_TIMEOUT_MS:3000}
     read-timeout-ms: ${GATEWAY_CLOUD_READ_TIMEOUT_MS:10000}
   sync:
@@ -45,3 +48,4 @@ gateway:
     ingest-fixed-delay-ms: ${GATEWAY_SYNC_INGEST_DELAY_MS:5000}
     command-poll-fixed-delay-ms: ${GATEWAY_SYNC_COMMAND_POLL_DELAY_MS:10000}
     ack-fixed-delay-ms: ${GATEWAY_SYNC_ACK_DELAY_MS:5000}
+    status-fixed-delay-ms: ${GATEWAY_SYNC_STATUS_DELAY_MS:15000}

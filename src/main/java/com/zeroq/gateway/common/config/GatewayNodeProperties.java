@@ -12,4 +12,6 @@ import org.springframework.stereotype.Component;
 public class GatewayNodeProperties {
     private String gatewayId = "GW-UNKNOWN";
     private String localApiKey = "change-me";
+    private String firmwareVersion;
+    private String ipAddress;
 }

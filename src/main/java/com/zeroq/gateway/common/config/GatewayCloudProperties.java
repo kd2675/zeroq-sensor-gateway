@@ -12,6 +12,7 @@ import org.springframework.stereotype.Component;
 public class GatewayCloudProperties {
     private String baseUrl = "http://localhost:8080";
     private String authToken;
+    private String serviceAuthSecret;
     private int connectTimeoutMs = 3000;
     private int readTimeoutMs = 10000;
 }

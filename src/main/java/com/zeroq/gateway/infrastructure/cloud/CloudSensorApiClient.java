@@ -7,6 +7,7 @@ import com.zeroq.gateway.database.pub.entity.GatewayTelemetryBuffer;
 import com.zeroq.gateway.database.pub.entity.SensorCommandStatus;
 import com.zeroq.gateway.database.pub.entity.SensorCommandType;
 import com.zeroq.gateway.service.command.vo.LocalCommandAckRequest;
+import com.zeroq.gateway.service.monitoring.biz.GatewayCloudRuntimeMetricsService;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +25,7 @@ import java.util.List;
 public class CloudSensorApiClient {
     private final RestClient cloudRestClient;
     private final GatewayNodeProperties gatewayNodeProperties;
+    private final GatewayCloudRuntimeMetricsService gatewayCloudRuntimeMetricsService;
 
     public CloudBatchResponse postBatchIngest(List<GatewayTelemetryBuffer> telemetries, List<GatewayHeartbeatBuffer> heartbeats) {
         CloudBatchRequest request = new CloudBatchRequest();
@@ -31,9 +33,10 @@ public class CloudSensorApiClient {
         request.setTelemetries(telemetries.stream().map(CloudTelemetry::from).toList());
         request.setHeartbeats(heartbeats.stream().map(CloudHeartbeat::from).toList());
 
+        long startedAt = System.nanoTime();
         try {
             GatewayResponseData<CloudBatchResponse> response = cloudRestClient.post()
-                    .uri("/api/zeroq/v1/sensor/ingest/batch")
+                    .uri("/internal/zeroq/gateway/sensor/ingest/batch")
                     .body(request)
                     .retrieve()
                     .body(new ParameterizedTypeReference<>() {
@@ -42,41 +45,50 @@ public class CloudSensorApiClient {
             if (response == null || response.getData() == null) {
                 throw new GatewayException.RemoteCallException("Invalid cloud batch ingest response");
             }
+            gatewayCloudRuntimeMetricsService.recordSuccess(elapsedMillis(startedAt));
             return response.getData();
         } catch (RestClientException ex) {
+            gatewayCloudRuntimeMetricsService.recordFailure(elapsedMillis(startedAt));
             throw new GatewayException.RemoteCallException("Batch ingest API failed: " + ex.getMessage());
         }
     }
 
     public void postTelemetry(GatewayTelemetryBuffer telemetry) {
+        long startedAt = System.nanoTime();
         try {
             cloudRestClient.post()
-                    .uri("/api/zeroq/v1/sensor/ingest/telemetry")
+                    .uri("/internal/zeroq/gateway/sensor/ingest/telemetry")
                     .body(CloudTelemetry.from(telemetry))
                     .retrieve()
                     .toBodilessEntity();
+            gatewayCloudRuntimeMetricsService.recordSuccess(elapsedMillis(startedAt));
         } catch (RestClientException ex) {
+            gatewayCloudRuntimeMetricsService.recordFailure(elapsedMillis(startedAt));
             throw new GatewayException.RemoteCallException("Telemetry ingest API failed: " + ex.getMessage());
         }
     }
 
     public void postHeartbeat(GatewayHeartbeatBuffer heartbeat) {
+        long startedAt = System.nanoTime();
         try {
             cloudRestClient.post()
-                    .uri("/api/zeroq/v1/sensor/ingest/heartbeat")
+                    .uri("/internal/zeroq/gateway/sensor/ingest/heartbeat")
                     .body(CloudHeartbeat.from(heartbeat))
                     .retrieve()
                     .toBodilessEntity();
+            gatewayCloudRuntimeMetricsService.recordSuccess(elapsedMillis(startedAt));
         } catch (RestClientException ex) {
+            gatewayCloudRuntimeMetricsService.recordFailure(elapsedMillis(startedAt));
             throw new GatewayException.RemoteCallException("Heartbeat ingest API failed: " + ex.getMessage());
         }
     }
 
     public List<CloudPendingCommand> getPendingCommands(String sensorId) {
+        long startedAt = System.nanoTime();
         try {
             GatewayResponseData<List<CloudPendingCommand>> response = cloudRestClient.get()
                     .uri(uriBuilder -> uriBuilder
-                            .path("/api/zeroq/v1/sensor/commands/sensor/{sensorId}/pending")
+                            .path("/internal/zeroq/gateway/sensor/commands/sensor/{sensorId}/pending")
                             .queryParam("markAsSent", true)
                             .build(sensorId))
                     .retrieve()
@@ -84,10 +96,13 @@ public class CloudSensorApiClient {
                     });
 
             if (response == null || response.getData() == null) {
+                gatewayCloudRuntimeMetricsService.recordSuccess(elapsedMillis(startedAt));
                 return List.of();
             }
+            gatewayCloudRuntimeMetricsService.recordSuccess(elapsedMillis(startedAt));
             return response.getData();
         } catch (RestClientException ex) {
+            gatewayCloudRuntimeMetricsService.recordFailure(elapsedMillis(startedAt));
             throw new GatewayException.RemoteCallException("Pending command API failed: " + ex.getMessage());
         }
     }
@@ -100,14 +115,32 @@ public class CloudSensorApiClient {
                 .acknowledgedAt(request.getAcknowledgedAt())
                 .build();
 
+        long startedAt = System.nanoTime();
         try {
             cloudRestClient.patch()
-                    .uri("/api/zeroq/v1/sensor/commands/{commandId}/ack", commandId)
+                    .uri("/internal/zeroq/gateway/sensor/commands/{commandId}/ack", commandId)
                     .body(ackRequest)
                     .retrieve()
                     .toBodilessEntity();
+            gatewayCloudRuntimeMetricsService.recordSuccess(elapsedMillis(startedAt));
         } catch (RestClientException ex) {
+            gatewayCloudRuntimeMetricsService.recordFailure(elapsedMillis(startedAt));
             throw new GatewayException.RemoteCallException("Command ack API failed: " + ex.getMessage());
+        }
+    }
+
+    public void postGatewayStatus(CloudGatewayStatus request) {
+        long startedAt = System.nanoTime();
+        try {
+            cloudRestClient.post()
+                    .uri("/internal/zeroq/gateway/sensor/ingest/gateway-heartbeat")
+                    .body(request)
+                    .retrieve()
+                    .toBodilessEntity();
+            gatewayCloudRuntimeMetricsService.recordSuccess(elapsedMillis(startedAt));
+        } catch (RestClientException ex) {
+            gatewayCloudRuntimeMetricsService.recordFailure(elapsedMillis(startedAt));
+            throw new GatewayException.RemoteCallException("Gateway status ingest API failed: " + ex.getMessage());
         }
     }
 
@@ -133,10 +166,12 @@ public class CloudSensorApiClient {
     public static class CloudTelemetry {
         private String sensorId;
         private Long sequenceNo;
-        private Long placeId;
         private String gatewayId;
         private LocalDateTime measuredAt;
         private Double distanceCm;
+        private Boolean occupied;
+        private Integer padLeftValue;
+        private Integer padRightValue;
         private Double confidence;
         private Double temperatureC;
         private Double humidityPercent;
@@ -148,10 +183,12 @@ public class CloudSensorApiClient {
             CloudTelemetry dto = new CloudTelemetry();
             dto.setSensorId(telemetry.getSensorId());
             dto.setSequenceNo(telemetry.getSequenceNo());
-            dto.setPlaceId(telemetry.getPlaceId());
             dto.setGatewayId(telemetry.getGatewayId());
             dto.setMeasuredAt(telemetry.getMeasuredAt());
             dto.setDistanceCm(telemetry.getDistanceCm());
+            dto.setOccupied(telemetry.getOccupied());
+            dto.setPadLeftValue(telemetry.getPadLeftValue());
+            dto.setPadRightValue(telemetry.getPadRightValue());
             dto.setConfidence(telemetry.getConfidence());
             dto.setTemperatureC(telemetry.getTemperatureC());
             dto.setHumidityPercent(telemetry.getHumidityPercent());
@@ -166,7 +203,6 @@ public class CloudSensorApiClient {
     @Setter
     public static class CloudHeartbeat {
         private String sensorId;
-        private Long placeId;
         private String gatewayId;
         private LocalDateTime heartbeatAt;
         private String firmwareVersion;
@@ -175,13 +211,31 @@ public class CloudSensorApiClient {
         public static CloudHeartbeat from(GatewayHeartbeatBuffer heartbeat) {
             CloudHeartbeat dto = new CloudHeartbeat();
             dto.setSensorId(heartbeat.getSensorId());
-            dto.setPlaceId(heartbeat.getPlaceId());
             dto.setGatewayId(heartbeat.getGatewayId());
             dto.setHeartbeatAt(heartbeat.getHeartbeatAt());
             dto.setFirmwareVersion(heartbeat.getFirmwareVersion());
             dto.setBatteryPercent(heartbeat.getBatteryPercent());
             return dto;
         }
+    }
+
+    @Getter
+    @Setter
+    public static class CloudGatewayStatus {
+        private String gatewayId;
+        private String status;
+        private LocalDateTime heartbeatAt;
+        private String firmwareVersion;
+        private String ipAddress;
+        private Integer currentSensorLoad;
+        private Integer latencyMs;
+        private Double packetLossPercent;
+        private Long telemetryPending;
+        private Long telemetryFailed;
+        private Long heartbeatPending;
+        private Long heartbeatFailed;
+        private Long commandDispatchPending;
+        private Long commandAckPending;
     }
 
     @Getter
@@ -203,5 +257,9 @@ public class CloudSensorApiClient {
         private String ackPayload;
         private String failureReason;
         private LocalDateTime acknowledgedAt;
+    }
+
+    private int elapsedMillis(long startedAt) {
+        return (int) ((System.nanoTime() - startedAt) / 1_000_000L);
     }
 }

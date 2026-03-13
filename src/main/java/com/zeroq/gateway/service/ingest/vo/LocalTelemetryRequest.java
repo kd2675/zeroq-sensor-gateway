@@ -2,7 +2,6 @@ package com.zeroq.gateway.service.ingest.vo;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Positive;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -20,10 +19,11 @@ public class LocalTelemetryRequest {
     @NotNull
     private LocalDateTime measuredAt;
 
-    @NotNull
-    @Positive
     private Double distanceCm;
 
+    private Boolean occupied;
+    private Integer padLeftValue;
+    private Integer padRightValue;
     private Double confidence;
     private Double temperatureC;
     private Double humidityPercent;
