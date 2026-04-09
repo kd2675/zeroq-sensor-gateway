@@ -63,6 +63,11 @@
 - 로그 설정: `src/main/resources/logback-spring.xml`
 - 로그 경로: local/test `./logs`, dev `/data/logs/dev/zeroq_sensor_gateway`, prod `/data/logs/prod/zeroq_sensor_gateway`
 
+## Related Docs
+
+- `AGENTS.md`
+- `AGENTS_ZEROQ_SENSOR_PROTOCOL.md`
+
 ## 참고
 
 - 클라우드 연동은 `infrastructure/cloud/CloudSensorApiClient`가 담당합니다.
