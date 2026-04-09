@@ -8,8 +8,10 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
+import web.common.core.response.base.dto.ResponseErrorDTO;
+import web.common.core.response.base.exception.GeneralException;
+import web.common.core.response.base.vo.Code;
 
-import java.time.LocalDateTime;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -17,49 +19,40 @@ import java.util.stream.Collectors;
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(GatewayException.class)
-    public ResponseEntity<ErrorResponse> handleGatewayException(GatewayException ex, WebRequest request) {
-        ErrorResponse body = ErrorResponse.of(
-                ex.getCode(),
-                ex.getMessage(),
-                ex.getStatus(),
-                request.getDescription(false).replace("uri=", "")
-        );
-        return new ResponseEntity<>(body, HttpStatus.valueOf(ex.getStatus()));
+    public ResponseEntity<ResponseErrorDTO> handleGatewayException(GatewayException ex) {
+        Code errorCode = ex.getErrorCode();
+        log.warn("GatewayException: code={}, status={}, message={}",
+                errorCode,
+                errorCode.getHttpStatus().value(),
+                ex.getMessage());
+
+        ResponseErrorDTO body = ResponseErrorDTO.of(errorCode, ex.getMessage());
+        return new ResponseEntity<>(body, errorCode.getHttpStatus());
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ErrorResponse> handleValidationException(MethodArgumentNotValidException ex, WebRequest request) {
+    public ResponseEntity<ResponseErrorDTO> handleValidationException(MethodArgumentNotValidException ex, WebRequest request) {
         BindingResult bindingResult = ex.getBindingResult();
         var fieldErrors = bindingResult.getFieldErrors().stream()
-                .map(error -> ErrorResponse.FieldError.builder()
-                        .field(error.getField())
-                        .message(error.getDefaultMessage())
-                        .rejectedValue(error.getRejectedValue())
-                        .build())
+                .map(error -> String.format("%s=%s (%s)",
+                        error.getField(),
+                        error.getRejectedValue(),
+                        error.getDefaultMessage()))
                 .collect(Collectors.toList());
 
-        ErrorResponse body = ErrorResponse.builder()
-                .success(false)
-                .code("VALIDATION_ERROR")
-                .message("Validation failed")
-                .status(HttpStatus.BAD_REQUEST.value())
-                .timestamp(LocalDateTime.now())
-                .path(request.getDescription(false).replace("uri=", ""))
-                .fieldErrors(fieldErrors)
-                .build();
+        log.warn("Validation failed: path={}, errors={}",
+                request.getDescription(false).replace("uri=", ""),
+                fieldErrors);
 
+        ResponseErrorDTO body = ResponseErrorDTO.of(Code.VALIDATION_ERROR, "Validation failed");
         return new ResponseEntity<>(body, HttpStatus.BAD_REQUEST);
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ErrorResponse> handleUnknownException(Exception ex, WebRequest request) {
+    public ResponseEntity<ResponseErrorDTO> handleUnknownException(Exception ex) {
         log.error("Unexpected gateway error", ex);
-        ErrorResponse body = ErrorResponse.of(
-                "INTERNAL_SERVER_ERROR",
-                "Unexpected error occurred",
-                HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                request.getDescription(false).replace("uri=", "")
-        );
+
+        ResponseErrorDTO body = ResponseErrorDTO.of(Code.INTERNAL_SERVER_ERROR, "Unexpected error occurred");
         return new ResponseEntity<>(body, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 }
