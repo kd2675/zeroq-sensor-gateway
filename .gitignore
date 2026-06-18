@@ -39,3 +39,13 @@ out/
 # Project exclude paths
 /logs/
 AGENTS*
+
+# Environment secrets
+.env
+.env.*
+!.env.example
+
+# Local agent/tool artifacts
+.codex/
+.claude/
+artifacts/
