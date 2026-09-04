@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 
 @Slf4j
 @Service
@@ -32,7 +33,7 @@ public class GatewayStatusSyncService {
         CloudSensorApiClient.CloudGatewayStatus request = new CloudSensorApiClient.CloudGatewayStatus();
         request.setGatewayId(gatewayNodeProperties.getGatewayId());
         request.setStatus(deriveStatus(queueStatus, metrics));
-        request.setHeartbeatAt(LocalDateTime.now());
+        request.setHeartbeatAt(LocalDateTime.now(ZoneOffset.UTC));
         request.setFirmwareVersion(blankToNull(gatewayNodeProperties.getFirmwareVersion()));
         request.setIpAddress(blankToNull(gatewayNodeProperties.getIpAddress()));
         request.setCurrentSensorLoad(Math.toIntExact(gatewayManagedSensorRepository.countByActiveTrue()));

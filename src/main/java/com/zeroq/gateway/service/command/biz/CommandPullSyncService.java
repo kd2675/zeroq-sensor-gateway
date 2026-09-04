@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 
 @Slf4j
@@ -40,12 +41,14 @@ public class CommandPullSyncService {
                                             .sensorId(command.getSensorId())
                                             .commandType(command.getCommandType())
                                             .commandPayload(command.getCommandPayload())
-                                            .requestedAt(command.getRequestedAt() == null ? LocalDateTime.now() : command.getRequestedAt())
+                                            .requestedAt(command.getRequestedAt() == null
+                                                    ? LocalDateTime.now(ZoneOffset.UTC)
+                                                    : command.getRequestedAt())
                                             .commandStatus(GatewayCommandBufferStatus.PENDING_DISPATCH)
                                             .build()
                             ));
                 }
-                sensor.setLastCommandPollAt(LocalDateTime.now());
+                sensor.setLastCommandPollAt(LocalDateTime.now(ZoneOffset.UTC));
                 gatewayManagedSensorRepository.save(sensor);
             } catch (Exception ex) {
                 log.warn("Pending command poll failed. sensorId={}, reason={}", sensor.getSensorId(), ex.getMessage());

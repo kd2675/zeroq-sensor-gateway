@@ -23,6 +23,9 @@ public class GatewayManagedSensor extends CommonDateEntity {
     @Column(name = "sensor_id", nullable = false, unique = true, length = 50)
     private String sensorId;
 
+    @Column(name = "mac_address", unique = true, length = 20)
+    private String macAddress;
+
     @Column(name = "place_id")
     private Long placeId;
 

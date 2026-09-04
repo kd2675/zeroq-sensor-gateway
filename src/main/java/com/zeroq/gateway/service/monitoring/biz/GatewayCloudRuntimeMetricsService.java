@@ -4,6 +4,7 @@ import com.zeroq.gateway.service.monitoring.vo.GatewayCloudRuntimeMetricsSnapsho
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayDeque;
 import java.util.Deque;
 
@@ -18,7 +19,7 @@ public class GatewayCloudRuntimeMetricsService {
     public synchronized void recordSuccess(long latencyMs) {
         record(true, latencyMs);
         consecutiveFailureCount = 0;
-        lastSuccessfulCloudSyncAt = LocalDateTime.now();
+        lastSuccessfulCloudSyncAt = LocalDateTime.now(ZoneOffset.UTC);
     }
 
     public synchronized void recordFailure(long latencyMs) {

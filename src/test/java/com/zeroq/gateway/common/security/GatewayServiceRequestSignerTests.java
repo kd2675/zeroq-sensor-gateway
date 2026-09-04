@@ -16,6 +16,7 @@ class GatewayServiceRequestSignerTests {
                 "/internal/zeroq/gateway/sensor/ingest/gateway-heartbeat",
                 "1773134000000",
                 "nonce-1",
+                signer.sha256Hex("{\"status\":\"ONLINE\"}".getBytes(java.nio.charset.StandardCharsets.UTF_8)),
                 "shared-secret"
         );
         String second = signer.sign(
@@ -24,6 +25,7 @@ class GatewayServiceRequestSignerTests {
                 "/internal/zeroq/gateway/sensor/ingest/gateway-heartbeat",
                 "1773134000000",
                 "nonce-1",
+                signer.sha256Hex("{\"status\":\"ONLINE\"}".getBytes(java.nio.charset.StandardCharsets.UTF_8)),
                 "shared-secret"
         );
 

@@ -166,6 +166,7 @@ public class CloudSensorApiClient {
     public static class CloudTelemetry {
         private String sensorId;
         private Long sequenceNo;
+        private Long placeId;
         private String gatewayId;
         private LocalDateTime measuredAt;
         private Double distanceCm;
@@ -183,6 +184,7 @@ public class CloudSensorApiClient {
             CloudTelemetry dto = new CloudTelemetry();
             dto.setSensorId(telemetry.getSensorId());
             dto.setSequenceNo(telemetry.getSequenceNo());
+            dto.setPlaceId(telemetry.getPlaceId());
             dto.setGatewayId(telemetry.getGatewayId());
             dto.setMeasuredAt(telemetry.getMeasuredAt());
             dto.setDistanceCm(telemetry.getDistanceCm());

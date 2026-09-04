@@ -1,0 +1,20 @@
+[Unit]
+Description=ZeroQ BLE spot sensor scanner
+After=bluetooth.target network-online.target zeroq-sensor-gateway.service
+Wants=bluetooth.target network-online.target
+Requires=zeroq-sensor-gateway.service
+
+[Service]
+Type=simple
+User=zeroq
+Group=zeroq
+WorkingDirectory=/opt/zeroq/zeroq-common/zeroq-sensor-gateway/tools/ble-seat-scanner
+EnvironmentFile=/etc/zeroq/ble-spot-scanner.env
+ExecStart=/opt/zeroq/zeroq-common/zeroq-sensor-gateway/tools/ble-seat-scanner/.venv/bin/python seat_ble_scanner.py
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

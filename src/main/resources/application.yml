@@ -31,6 +31,10 @@ management:
       show-details: always
 
 gateway:
+  ble:
+    allow-legacy-unsigned: ${ZEROQ_BLE_ALLOW_LEGACY_UNSIGNED:false}
+    # 센서별 16-byte key는 운영 secret store에서 SPRING_APPLICATION_JSON으로 주입합니다.
+    sensor-keys: {}
   node:
     gateway-id: ${GATEWAY_NODE_ID:GW-STORE-001}
     local-api-key: ${GATEWAY_LOCAL_API_KEY:change-me}
@@ -43,6 +47,7 @@ gateway:
     connect-timeout-ms: ${GATEWAY_CLOUD_CONNECT_TIMEOUT_MS:3000}
     read-timeout-ms: ${GATEWAY_CLOUD_READ_TIMEOUT_MS:10000}
   sync:
+    enabled: ${GATEWAY_SYNC_ENABLED:true}
     batch-size: ${GATEWAY_SYNC_BATCH_SIZE:100}
     max-retry: ${GATEWAY_SYNC_MAX_RETRY:10}
     ingest-fixed-delay-ms: ${GATEWAY_SYNC_INGEST_DELAY_MS:5000}

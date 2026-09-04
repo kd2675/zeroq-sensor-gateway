@@ -9,6 +9,8 @@ import java.util.Optional;
 public interface GatewayManagedSensorRepository extends JpaRepository<GatewayManagedSensor, Long> {
     Optional<GatewayManagedSensor> findBySensorId(String sensorId);
 
+    Optional<GatewayManagedSensor> findByMacAddress(String macAddress);
+
     List<GatewayManagedSensor> findAllByActiveTrueOrderBySensorIdAsc();
 
     long countByActiveTrue();

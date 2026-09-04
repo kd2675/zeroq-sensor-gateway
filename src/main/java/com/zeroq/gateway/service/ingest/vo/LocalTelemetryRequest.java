@@ -15,6 +15,7 @@ public class LocalTelemetryRequest {
 
     private Long sequenceNo;
     private Long placeId;
+    private String macAddress;
 
     @NotNull
     private LocalDateTime measuredAt;

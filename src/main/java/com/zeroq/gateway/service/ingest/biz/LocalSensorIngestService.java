@@ -32,7 +32,7 @@ public class LocalSensorIngestService {
     @Transactional
     public LocalIngestResponse ingestTelemetry(LocalTelemetryRequest request) {
         validateTelemetryPayload(request);
-        upsertManagedSensor(request.getSensorId(), request.getPlaceId());
+        upsertManagedSensor(request.getSensorId(), request.getPlaceId(), request.getMacAddress());
 
         if (isDuplicateTelemetry(request)) {
             return LocalIngestResponse.builder()
@@ -83,7 +83,7 @@ public class LocalSensorIngestService {
 
     @Transactional
     public LocalIngestResponse ingestHeartbeat(LocalHeartbeatRequest request) {
-        upsertManagedSensor(request.getSensorId(), request.getPlaceId());
+        upsertManagedSensor(request.getSensorId(), request.getPlaceId(), request.getMacAddress());
 
         if (gatewayHeartbeatBufferRepository.existsBySensorIdAndHeartbeatAt(
                 request.getSensorId(),
@@ -175,12 +175,26 @@ public class LocalSensorIngestService {
         }
     }
 
-    private void upsertManagedSensor(String sensorId, Long placeId) {
+    private void upsertManagedSensor(String sensorId, Long placeId, String macAddress) {
         GatewayManagedSensor managedSensor = gatewayManagedSensorRepository.findBySensorId(sensorId)
                 .orElseGet(() -> GatewayManagedSensor.builder()
                         .sensorId(sensorId)
                         .active(true)
                         .build());
+
+        String normalizedMacAddress = normalizeMacAddress(macAddress);
+        if (normalizedMacAddress != null) {
+            if (managedSensor.getMacAddress() != null
+                    && !managedSensor.getMacAddress().equals(normalizedMacAddress)) {
+                throw new GatewayException.ValidationException("Sensor BLE address changed for sensorId: " + sensorId);
+            }
+            gatewayManagedSensorRepository.findByMacAddress(normalizedMacAddress).ifPresent(owner -> {
+                if (!owner.getSensorId().equals(sensorId)) {
+                    throw new GatewayException.ValidationException("BLE address is already assigned to another sensor");
+                }
+            });
+            managedSensor.setMacAddress(normalizedMacAddress);
+        }
 
         if (placeId != null) {
             managedSensor.setPlaceId(placeId);
@@ -188,5 +202,16 @@ public class LocalSensorIngestService {
         managedSensor.setActive(true);
 
         gatewayManagedSensorRepository.save(managedSensor);
+    }
+
+    private String normalizeMacAddress(String macAddress) {
+        if (macAddress == null || macAddress.isBlank()) {
+            return null;
+        }
+        String normalized = macAddress.trim().toUpperCase().replace('-', ':');
+        if (!normalized.matches("[0-9A-F]{2}(:[0-9A-F]{2}){5}")) {
+            throw new GatewayException.ValidationException("macAddress must use AA:BB:CC:DD:EE:FF format");
+        }
+        return normalized;
     }
 }

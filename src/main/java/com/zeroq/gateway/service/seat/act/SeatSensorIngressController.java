@@ -26,6 +26,6 @@ public class SeatSensorIngressController {
             HttpServletRequest httpServletRequest
     ) {
         gatewayApiKeyGuard.requireGatewayApiKey(httpServletRequest);
-        return ResponseDataDTO.of(seatSensorIngressService.ingestAdvertisement(request), "좌석 센서 광고 패킷 저장 완료");
+        return ResponseDataDTO.of(seatSensorIngressService.ingestAdvertisement(request), "점유 센서 광고 패킷 저장 완료");
     }
 }

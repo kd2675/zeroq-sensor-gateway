@@ -36,17 +36,20 @@ public class RestClientConfig {
                         String path = request.getURI().getRawQuery() == null
                                 ? request.getURI().getRawPath()
                                 : request.getURI().getRawPath() + "?" + request.getURI().getRawQuery();
+                        String contentSha256 = gatewayServiceRequestSigner.sha256Hex(body);
                         String signature = gatewayServiceRequestSigner.sign(
                                 gatewayNodeProperties.getGatewayId(),
                                 request.getMethod().name(),
                                 path,
                                 timestamp,
                                 nonce,
+                                contentSha256,
                                 cloudProperties.getServiceAuthSecret()
                         );
                         request.getHeaders().set("X-Gateway-Id", gatewayNodeProperties.getGatewayId());
                         request.getHeaders().set("X-Gateway-Timestamp", timestamp);
                         request.getHeaders().set("X-Gateway-Nonce", nonce);
+                        request.getHeaders().set("X-Gateway-Content-SHA256", contentSha256);
                         request.getHeaders().set("X-Gateway-Signature", signature);
                     }
                     return execution.execute(request, body);

@@ -10,7 +10,9 @@ import java.util.Optional;
 public interface GatewayCommandBufferRepository extends JpaRepository<GatewayCommandBuffer, Long> {
     Optional<GatewayCommandBuffer> findByCloudCommandId(Long cloudCommandId);
 
-    List<GatewayCommandBuffer> findTop100ByCommandStatusOrderByRequestedAtAsc(GatewayCommandBufferStatus status);
+    List<GatewayCommandBuffer> findTop100ByCommandStatusInOrderByRequestedAtAsc(
+            List<GatewayCommandBufferStatus> statuses
+    );
 
     long countByCommandStatus(GatewayCommandBufferStatus status);
 }

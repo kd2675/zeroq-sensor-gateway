@@ -1,19 +1,15 @@
-DROP TABLE IF EXISTS gateway_command_ack_outbox;
-DROP TABLE IF EXISTS gateway_command_buffer;
-DROP TABLE IF EXISTS gateway_heartbeat_buffer;
-DROP TABLE IF EXISTS gateway_telemetry_buffer;
-DROP TABLE IF EXISTS gateway_managed_sensor;
-
 CREATE TABLE IF NOT EXISTS gateway_managed_sensor (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     sensor_id VARCHAR(50) NOT NULL,
+    mac_address VARCHAR(20) NULL,
     place_id BIGINT NULL,
     active BOOLEAN NOT NULL,
     last_command_poll_at DATETIME NULL,
     metadata_json TEXT NULL,
     create_date DATETIME NOT NULL,
     update_date DATETIME NOT NULL,
-    CONSTRAINT uk_gateway_managed_sensor_sensor_id UNIQUE (sensor_id)
+    CONSTRAINT uk_gateway_managed_sensor_sensor_id UNIQUE (sensor_id),
+    CONSTRAINT uk_gateway_managed_sensor_mac_address UNIQUE (mac_address)
 );
 
 CREATE INDEX idx_gateway_managed_sensor_active

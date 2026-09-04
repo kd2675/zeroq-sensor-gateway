@@ -1,5 +1,6 @@
 package com.zeroq.gateway.service.ingest.biz;
 
+import com.zeroq.gateway.common.exception.GatewayException;
 import com.zeroq.gateway.database.pub.entity.BufferSyncStatus;
 import com.zeroq.gateway.database.pub.repository.GatewayHeartbeatBufferRepository;
 import com.zeroq.gateway.database.pub.repository.GatewayManagedSensorRepository;
@@ -15,6 +16,7 @@ import org.springframework.test.context.ActiveProfiles;
 import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @SpringBootTest
 @ActiveProfiles("test")
@@ -82,5 +84,39 @@ class LocalSensorIngestServiceTests {
         assertThat(response.getHeartbeatAccepted()).isEqualTo(1);
         assertThat(gatewayManagedSensorRepository.findBySensorId(request.getSensorId())).isPresent();
         assertThat(gatewayHeartbeatBufferRepository.countBySyncStatus(BufferSyncStatus.PENDING)).isGreaterThan(0);
+    }
+
+    @Test
+    void ingestTelemetry_sameSensorWithDifferentBleAddress_rejectsIdentityChange() {
+        String sensorId = "SPOT-MAC-" + System.nanoTime();
+        LocalTelemetryRequest first = telemetryRequest(sensorId, "AA:BB:CC:00:00:01");
+        LocalTelemetryRequest changed = telemetryRequest(sensorId, "AA:BB:CC:00:00:02");
+        localSensorIngestService.ingestTelemetry(first);
+
+        assertThatThrownBy(() -> localSensorIngestService.ingestTelemetry(changed))
+                .isInstanceOf(GatewayException.ValidationException.class)
+                .hasMessageContaining("BLE address changed");
+    }
+
+    @Test
+    void ingestTelemetry_sameBleAddressForDifferentSensor_rejectsDuplicateIdentity() {
+        String suffix = String.valueOf(System.nanoTime());
+        String macAddress = "AA:BB:CC:00:00:03";
+        localSensorIngestService.ingestTelemetry(telemetryRequest("SPOT-A-" + suffix, macAddress));
+
+        assertThatThrownBy(() -> localSensorIngestService.ingestTelemetry(
+                telemetryRequest("SPOT-B-" + suffix, macAddress)
+        ))
+                .isInstanceOf(GatewayException.ValidationException.class)
+                .hasMessageContaining("already assigned");
+    }
+
+    private LocalTelemetryRequest telemetryRequest(String sensorId, String macAddress) {
+        LocalTelemetryRequest request = new LocalTelemetryRequest();
+        request.setSensorId(sensorId);
+        request.setMacAddress(macAddress);
+        request.setMeasuredAt(LocalDateTime.now());
+        request.setDistanceCm(74.2);
+        return request;
     }
 }

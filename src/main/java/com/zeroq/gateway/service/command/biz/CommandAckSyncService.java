@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.EnumSet;
 import java.util.List;
 
@@ -50,12 +51,12 @@ public class CommandAckSyncService {
 
                 outbox.setSyncStatus(BufferSyncStatus.SENT);
                 outbox.setErrorMessage(null);
-                outbox.setLastAttemptAt(LocalDateTime.now());
+                outbox.setLastAttemptAt(LocalDateTime.now(ZoneOffset.UTC));
                 gatewayCommandAckOutboxRepository.save(outbox);
 
                 gatewayCommandBufferRepository.findByCloudCommandId(outbox.getCloudCommandId())
                         .ifPresent(command -> {
-                            command.setLastCloudAckAt(LocalDateTime.now());
+                            command.setLastCloudAckAt(LocalDateTime.now(ZoneOffset.UTC));
                             command.setFailureReason(outbox.getFailureReason());
                             if (outbox.getAckStatus() == SensorCommandStatus.ACKNOWLEDGED) {
                                 command.setCommandStatus(GatewayCommandBufferStatus.ACKED);
@@ -70,7 +71,7 @@ public class CommandAckSyncService {
                 outbox.setSyncStatus(BufferSyncStatus.FAILED);
                 outbox.setRetryCount(outbox.getRetryCount() + 1);
                 outbox.setErrorMessage(truncate(ex.getMessage(), 500));
-                outbox.setLastAttemptAt(LocalDateTime.now());
+                outbox.setLastAttemptAt(LocalDateTime.now(ZoneOffset.UTC));
                 gatewayCommandAckOutboxRepository.save(outbox);
                 log.warn("Command ACK sync failed. cloudCommandId={}, reason={}", outbox.getCloudCommandId(), ex.getMessage());
             }

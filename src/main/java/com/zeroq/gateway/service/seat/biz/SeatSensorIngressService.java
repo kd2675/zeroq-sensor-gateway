@@ -10,6 +10,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -20,15 +23,22 @@ public class SeatSensorIngressService {
     @Transactional
     public LocalIngestResponse ingestAdvertisement(SeatSensorAdvertisementRequest request) {
         DecodedSeatSensorAdvertisement decoded = seatSensorAdvertisementDecoder.decode(request.getPayloadHex());
+        LocalDateTime measuredAt = resolveMeasuredAt(request, decoded);
 
         LocalTelemetryRequest telemetryRequest = new LocalTelemetryRequest();
         telemetryRequest.setSensorId(decoded.getSensorId());
         telemetryRequest.setSequenceNo(decoded.getSequenceNo());
         telemetryRequest.setPlaceId(request.getPlaceId());
-        telemetryRequest.setMeasuredAt(decoded.getMeasuredAt());
+        telemetryRequest.setMacAddress(request.getMacAddress());
+        telemetryRequest.setMeasuredAt(measuredAt);
         telemetryRequest.setOccupied(decoded.isOccupied());
-        telemetryRequest.setPadLeftValue(decoded.getLeftValue());
-        telemetryRequest.setPadRightValue(decoded.getRightValue());
+        telemetryRequest.setConfidence(decoded.isSensorFault() ? 0.0 : 1.0);
+        if (decoded.isDistanceMode()) {
+            telemetryRequest.setDistanceCm(decoded.getDistanceMm() / 10.0);
+        } else {
+            telemetryRequest.setPadLeftValue(decoded.getLeftValue());
+            telemetryRequest.setPadRightValue(decoded.getRightValue());
+        }
         telemetryRequest.setBatteryPercent((double) decoded.getBatteryPercent());
         telemetryRequest.setRssi(request.getRssi());
         telemetryRequest.setRawPayload(request.getPayloadHex());
@@ -42,7 +52,8 @@ public class SeatSensorIngressService {
         LocalHeartbeatRequest heartbeatRequest = new LocalHeartbeatRequest();
         heartbeatRequest.setSensorId(decoded.getSensorId());
         heartbeatRequest.setPlaceId(request.getPlaceId());
-        heartbeatRequest.setHeartbeatAt(decoded.getMeasuredAt());
+        heartbeatRequest.setMacAddress(request.getMacAddress());
+        heartbeatRequest.setHeartbeatAt(measuredAt);
         heartbeatRequest.setBatteryPercent((double) decoded.getBatteryPercent());
 
         LocalIngestResponse heartbeatResponse = localSensorIngestService.ingestHeartbeat(heartbeatRequest);
@@ -51,5 +62,17 @@ public class SeatSensorIngressService {
                 .heartbeatAccepted(heartbeatResponse.getHeartbeatAccepted())
                 .duplicateIgnored(telemetryResponse.getDuplicateIgnored() + heartbeatResponse.getDuplicateIgnored())
                 .build();
+    }
+
+    private LocalDateTime resolveMeasuredAt(
+            SeatSensorAdvertisementRequest request,
+            DecodedSeatSensorAdvertisement decoded
+    ) {
+        if (decoded.getProtocolVersion() == 1 && decoded.getMeasuredAt() != null) {
+            return decoded.getMeasuredAt();
+        }
+        return request.getObservedAt() == null
+                ? LocalDateTime.now(ZoneOffset.UTC)
+                : request.getObservedAt();
     }
 }

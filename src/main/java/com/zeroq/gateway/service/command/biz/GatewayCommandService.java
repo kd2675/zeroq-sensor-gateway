@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 
 @Service
@@ -22,8 +23,11 @@ public class GatewayCommandService {
 
     public List<GatewayCommandResponse> getPendingCommands(int limit) {
         int capped = Math.max(1, Math.min(limit, 100));
-        return gatewayCommandBufferRepository.findTop100ByCommandStatusOrderByRequestedAtAsc(
-                        GatewayCommandBufferStatus.PENDING_DISPATCH
+        return gatewayCommandBufferRepository.findTop100ByCommandStatusInOrderByRequestedAtAsc(
+                        List.of(
+                                GatewayCommandBufferStatus.PENDING_DISPATCH,
+                                GatewayCommandBufferStatus.DISPATCHED
+                        )
                 ).stream()
                 .limit(capped)
                 .map(GatewayCommandResponse::from)
@@ -40,7 +44,7 @@ public class GatewayCommandService {
                 ));
 
         command.setCommandStatus(GatewayCommandBufferStatus.DISPATCHED);
-        command.setLastDispatchAt(LocalDateTime.now());
+        command.setLastDispatchAt(LocalDateTime.now(ZoneOffset.UTC));
         gatewayCommandBufferRepository.save(command);
 
         return GatewayCommandResponse.from(command);
@@ -69,7 +73,7 @@ public class GatewayCommandService {
         }
 
         LocalDateTime acknowledgedAt = request.getAcknowledgedAt() == null
-                ? LocalDateTime.now()
+                ? LocalDateTime.now(ZoneOffset.UTC)
                 : request.getAcknowledgedAt();
 
         GatewayCommandAckOutbox ackOutbox = GatewayCommandAckOutbox.builder()

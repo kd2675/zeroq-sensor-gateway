@@ -14,6 +14,9 @@ spring:
     hibernate:
       ddl-auto: create-drop
     show-sql: false
-  task:
-    scheduling:
-      enabled: false
+
+gateway:
+  ble:
+    allow-legacy-unsigned: true
+  sync:
+    enabled: false

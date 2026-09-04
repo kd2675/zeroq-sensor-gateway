@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.EnumSet;
 import java.util.List;
 
@@ -84,7 +85,7 @@ public class CloudIngestSyncService {
             telemetryBuffer.setRetryCount(telemetryBuffer.getRetryCount() + 1);
             telemetryBuffer.setErrorMessage(truncate(ex.getMessage(), 500));
         }
-        telemetryBuffer.setLastAttemptAt(LocalDateTime.now());
+        telemetryBuffer.setLastAttemptAt(LocalDateTime.now(ZoneOffset.UTC));
         gatewayTelemetryBufferRepository.save(telemetryBuffer);
     }
 
@@ -98,12 +99,12 @@ public class CloudIngestSyncService {
             heartbeatBuffer.setRetryCount(heartbeatBuffer.getRetryCount() + 1);
             heartbeatBuffer.setErrorMessage(truncate(ex.getMessage(), 500));
         }
-        heartbeatBuffer.setLastAttemptAt(LocalDateTime.now());
+        heartbeatBuffer.setLastAttemptAt(LocalDateTime.now(ZoneOffset.UTC));
         gatewayHeartbeatBufferRepository.save(heartbeatBuffer);
     }
 
     private void markTelemetryAsSent(List<GatewayTelemetryBuffer> telemetryBuffers) {
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
         telemetryBuffers.forEach(buffer -> {
             buffer.setSyncStatus(BufferSyncStatus.SENT);
             buffer.setErrorMessage(null);
@@ -113,7 +114,7 @@ public class CloudIngestSyncService {
     }
 
     private void markHeartbeatsAsSent(List<GatewayHeartbeatBuffer> heartbeatBuffers) {
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
         heartbeatBuffers.forEach(buffer -> {
             buffer.setSyncStatus(BufferSyncStatus.SENT);
             buffer.setErrorMessage(null);

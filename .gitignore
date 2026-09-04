@@ -49,3 +49,8 @@ AGENTS*
 .codex/
 .claude/
 artifacts/
+
+# Python BLE scanner
+.venv/
+__pycache__/
+*.py[cod]

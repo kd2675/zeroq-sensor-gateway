@@ -14,6 +14,7 @@ public class LocalHeartbeatRequest {
     private String sensorId;
 
     private Long placeId;
+    private String macAddress;
 
     @NotNull
     private LocalDateTime heartbeatAt;
