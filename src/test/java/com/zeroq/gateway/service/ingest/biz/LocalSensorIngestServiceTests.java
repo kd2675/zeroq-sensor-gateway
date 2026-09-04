@@ -14,6 +14,12 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -99,6 +105,19 @@ class LocalSensorIngestServiceTests {
     }
 
     @Test
+    void ingestTelemetry_withoutPlaceId_rejectsUnattributedTelemetry() {
+        LocalTelemetryRequest request = telemetryRequest(
+                "SPOT-NO-PLACE-" + System.nanoTime(),
+                "AA:BB:CC:00:00:04"
+        );
+        request.setPlaceId(null);
+
+        assertThatThrownBy(() -> localSensorIngestService.ingestTelemetry(request))
+                .isInstanceOf(GatewayException.ValidationException.class)
+                .hasMessageContaining("placeId");
+    }
+
+    @Test
     void ingestTelemetry_sameBleAddressForDifferentSensor_rejectsDuplicateIdentity() {
         String suffix = String.valueOf(System.nanoTime());
         String macAddress = "AA:BB:CC:00:00:03";
@@ -111,10 +130,47 @@ class LocalSensorIngestServiceTests {
                 .hasMessageContaining("already assigned");
     }
 
+    @Test
+    void ingestTelemetry_concurrentDuplicate_keepsOneBufferAndReportsOneDuplicate() throws Exception {
+        String sensorId = "SPOT-RACE-" + System.nanoTime();
+        LocalDateTime measuredAt = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);
+        LocalTelemetryRequest first = telemetryRequest(sensorId, "AA:BB:CC:00:00:06");
+        LocalTelemetryRequest second = telemetryRequest(sensorId, "AA:BB:CC:00:00:06");
+        first.setSequenceNo(44L);
+        first.setMeasuredAt(measuredAt);
+        second.setSequenceNo(44L);
+        second.setMeasuredAt(measuredAt);
+        CountDownLatch start = new CountDownLatch(1);
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+
+        try {
+            Future<LocalIngestResponse> firstResult = executor.submit(() -> {
+                start.await();
+                return localSensorIngestService.ingestTelemetry(first);
+            });
+            Future<LocalIngestResponse> secondResult = executor.submit(() -> {
+                start.await();
+                return localSensorIngestService.ingestTelemetry(second);
+            });
+            start.countDown();
+            long duplicateCount = List.of(firstResult.get(), secondResult.get()).stream()
+                    .mapToInt(LocalIngestResponse::getDuplicateIgnored)
+                    .sum();
+            long storedCount = gatewayTelemetryBufferRepository.findAll().stream()
+                    .filter(buffer -> sensorId.equals(buffer.getSensorId()))
+                    .count();
+
+            assertThat(List.of(duplicateCount, storedCount)).containsExactly(1L, 1L);
+        } finally {
+            executor.shutdownNow();
+        }
+    }
+
     private LocalTelemetryRequest telemetryRequest(String sensorId, String macAddress) {
         LocalTelemetryRequest request = new LocalTelemetryRequest();
         request.setSensorId(sensorId);
         request.setMacAddress(macAddress);
+        request.setPlaceId(101L);
         request.setMeasuredAt(LocalDateTime.now());
         request.setDistanceCm(74.2);
         return request;

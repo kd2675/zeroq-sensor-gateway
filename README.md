@@ -26,8 +26,10 @@
 - 로컬 API는 `X-Gateway-Key` 헤더를 요구합니다.
 - 키는 `gateway.node.local-api-key` 또는 `GATEWAY_LOCAL_API_KEY`에서 관리합니다.
 - 센서별 16바이트 키는 `gateway.ble.sensor-keys`와 scanner의 `ZEROQ_BLE_SENSOR_KEYS_JSON`에 동일하게 등록합니다.
+- protocol v3 local ingest는 관측 BLE 주소를 필수로 받고, Java gateway에서 최초 sensorId-MAC 결합 이후 주소 변경을 거부합니다.
 - unsigned v1/v2 수신은 기본적으로 거부하며 `ZEROQ_BLE_ALLOW_LEGACY_UNSIGNED=true`는 한시적 마이그레이션에만 사용합니다.
 - cloud HMAC은 body SHA-256을 포함합니다. 운영 cloud는 gateway별 secret map을 사용하고 공용 secret fallback을 사용하지 않습니다.
+- 32비트 advertising 태그와 BLE 주소 결합은 replay나 주소 위조를 막지 못하며 GATT command도 별도 application MAC이 없습니다. 현재 BLE 경로는 통제된 파일럿용입니다.
 
 ## 실행 프로필과 포트
 

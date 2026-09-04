@@ -25,6 +25,10 @@ public class CommandPullSyncService {
     private final GatewayCommandBufferRepository gatewayCommandBufferRepository;
     private final CloudSensorApiClient cloudSensorApiClient;
 
+    /**
+     * 활성 관리 센서별 클라우드 미완료 명령을 polling하고 cloudCommandId 기준으로 멱등 저장한다.
+     * 한 센서의 통신 실패가 다른 센서 polling을 중단하지 않는다.
+     */
     @Scheduled(fixedDelayString = "${gateway.sync.command-poll-fixed-delay-ms:10000}")
     @Transactional
     public void pollPendingCommands() {

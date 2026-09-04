@@ -40,6 +40,7 @@ class ScannerConfig:
 
     @classmethod
     def from_environment(cls) -> "ScannerConfig":
+        """Load and validate gateway credentials and per-sensor provisioning maps."""
         api_key = os.environ.get("GATEWAY_LOCAL_API_KEY", "").strip()
         if not api_key:
             raise ValueError("GATEWAY_LOCAL_API_KEY is required")
@@ -57,6 +58,9 @@ class ScannerConfig:
         if not isinstance(decoded_place_ids, dict):
             raise ValueError("ZEROQ_SPOT_PLACE_MAP_JSON must be a JSON object")
         place_ids = {str(sensor_id): int(place_id) for sensor_id, place_id in decoded_place_ids.items()}
+        invalid_place_ids = [sensor_id for sensor_id, place_id in place_ids.items() if place_id <= 0]
+        if invalid_place_ids:
+            raise ValueError("ZEROQ_SPOT_PLACE_MAP_JSON placeId values must be positive")
 
         decoded_keys = json.loads(os.environ.get("ZEROQ_BLE_SENSOR_KEYS_JSON", "{}"))
         if not isinstance(decoded_keys, dict):
@@ -70,6 +74,12 @@ class ScannerConfig:
             if len(key) != 16:
                 raise ValueError(f"BLE key for {sensor_id} must be exactly 16 bytes")
             sensor_keys[str(sensor_id)] = key
+        missing_place_ids = sorted(set(sensor_keys) - set(place_ids))
+        if missing_place_ids:
+            raise ValueError(
+                "ZEROQ_SPOT_PLACE_MAP_JSON is missing sensorIds: "
+                + ", ".join(missing_place_ids)
+            )
 
         decoded_addresses = json.loads(os.environ.get("ZEROQ_BLE_SENSOR_ADDRESSES_JSON", "{}"))
         if not isinstance(decoded_addresses, dict):
@@ -82,6 +92,12 @@ class ScannerConfig:
                     f"BLE address for {sensor_id} must use AA:BB:CC:DD:EE:FF format"
                 )
             sensor_addresses[str(sensor_id)] = normalized_address
+        missing_address_place_ids = sorted(set(sensor_addresses) - set(place_ids))
+        if missing_address_place_ids:
+            raise ValueError(
+                "ZEROQ_SPOT_PLACE_MAP_JSON is missing sensorIds: "
+                + ", ".join(missing_address_place_ids)
+            )
         allow_legacy_unsigned = os.environ.get(
             "ZEROQ_BLE_ALLOW_LEGACY_UNSIGNED", "false"
         ).strip().lower() in {"1", "true", "yes"}
@@ -160,6 +176,7 @@ class GatewayClient:
         method: str,
         payload: dict[str, object] | None,
     ) -> dict[str, object]:
+        """Call the loopback gateway API with the local scanner API key."""
         body = None if payload is None else json.dumps(payload, separators=(",", ":")).encode("utf-8")
         request = urllib.request.Request(
             f"{self._config.gateway_base_url}{path}",
@@ -196,9 +213,10 @@ class SeatAdvertisementForwarder:
         self._deduplicator = DeliveryDeduplicator()
         self._request_cache = DeliveryRequestCache()
         self._tasks: set[asyncio.Task[None]] = set()
-        self._sensor_addresses: dict[str, str] = {}
+        self._sensor_targets: dict[str, Any] = {}
 
     def handle(self, device: Any, advertisement_data: Any) -> None:
+        """Validate, map, deduplicate, and enqueue one ZeroQ BLE advertisement."""
         payload = advertisement_data.manufacturer_data.get(self._config.manufacturer_id)
         if payload is None:
             return
@@ -213,7 +231,23 @@ class SeatAdvertisementForwarder:
             LOGGER.warning("Ignoring invalid ZeroQ seat advertisement: %s", error)
             return
 
+        if advertisement.sensor_id not in self._config.place_ids:
+            LOGGER.warning(
+                "Ignoring ZeroQ advertisement without place mapping: sensorId=%s",
+                advertisement.sensor_id,
+            )
+            return
+
         observed_address = normalize_ble_address(str(getattr(device, "address", "")))
+        if advertisement.protocol_version == 3 and not re.fullmatch(
+            r"[0-9A-F]{2}(:[0-9A-F]{2}){5}", observed_address
+        ):
+            LOGGER.warning(
+                "Ignoring authenticated advertisement without a usable BLE MAC: sensorId=%s address=%s",
+                advertisement.sensor_id,
+                observed_address or "missing",
+            )
+            return
         expected_address = self._config.sensor_addresses.get(advertisement.sensor_id)
         if expected_address is not None and observed_address != expected_address:
             LOGGER.warning(
@@ -223,7 +257,7 @@ class SeatAdvertisementForwarder:
             )
             return
         if observed_address:
-            self._sensor_addresses[advertisement.sensor_id] = observed_address
+            self._sensor_targets[advertisement.sensor_id] = device
 
         now = time.monotonic()
         if not self._deduplicator.begin(advertisement.signature, now):
@@ -250,20 +284,25 @@ class SeatAdvertisementForwarder:
             await asyncio.gather(*self._tasks, return_exceptions=True)
 
     async def dispatch_pending_commands(self) -> None:
+        """Dispatch at most one command per observed sensor during this poll cycle."""
         try:
             commands = await self._client.get_pending_commands()
         except Exception as error:
             LOGGER.warning("Failed to load pending sensor commands: %s", error)
             return
 
+        blocked_sensor_ids: set[str] = set()
         for command in commands:
             sensor_id = str(command.get("sensorId", ""))
-            address = self._sensor_addresses.get(sensor_id)
-            if not address:
+            if sensor_id in blocked_sensor_ids:
+                continue
+            target = self._sensor_targets.get(sensor_id)
+            if not target:
                 continue
             try:
-                await self._dispatch_command(address, command)
+                await self._dispatch_command(target, command)
             except Exception as error:
+                blocked_sensor_ids.add(sensor_id)
                 LOGGER.warning(
                     "Failed to dispatch BLE command: sensorId=%s commandId=%s error=%s",
                     sensor_id,
@@ -273,14 +312,20 @@ class SeatAdvertisementForwarder:
 
     async def _dispatch_command(
         self,
-        address: str,
+        target: Any,
         command: dict[str, object],
     ) -> None:
-        from bleak import BleakClient
-
+        """Write one command over BLE and relay its matching notification ACK."""
         command_id = int(command["cloudCommandId"])
         command_type = str(command["commandType"])
         command_payload = str(command.get("commandPayload") or "")
+        if command_id <= 0 or command_id > 0xFFFFFFFF:
+            await self._client.post_command_ack(
+                command_id,
+                "FAILED",
+                "command id exceeds sensor uint32 range",
+            )
+            return
         if "|" in command_payload:
             await self._client.post_command_ack(command_id, "FAILED", "command payload must not contain pipe")
             return
@@ -288,6 +333,8 @@ class SeatAdvertisementForwarder:
         if len(wire_command) >= 160:
             await self._client.post_command_ack(command_id, "FAILED", "command payload exceeds 159 bytes")
             return
+
+        from bleak import BleakClient
 
         ack_event = asyncio.Event()
         ack_result: list[tuple[str, str]] = []
@@ -302,7 +349,13 @@ class SeatAdvertisementForwarder:
             except (UnicodeDecodeError, ValueError):
                 return
 
-        async with BleakClient(address, timeout=self._config.request_timeout_seconds) as client:
+        client_options: dict[str, Any] = {
+            "timeout": self._config.request_timeout_seconds,
+        }
+        if self._config.adapter:
+            client_options["bluez"] = {"adapter": self._config.adapter}
+
+        async with BleakClient(target, **client_options) as client:
             await client.start_notify(COMMAND_ACK_UUID, handle_ack)
             await client.write_gatt_char(COMMAND_WRITE_UUID, wire_command, response=True)
             await self._client.mark_dispatched(command_id)
@@ -324,6 +377,7 @@ class SeatAdvertisementForwarder:
         sensor_id: str,
         request: dict[str, object],
     ) -> None:
+        """Forward an advertisement up to five times while preserving dedup state."""
         delivered = False
         try:
             for attempt in range(1, 6):
@@ -348,6 +402,7 @@ class SeatAdvertisementForwarder:
 
 
 async def run() -> None:
+    """Run active BLE scanning and command polling until a termination signal."""
     from bleak import BleakScanner
 
     config = ScannerConfig.from_environment()

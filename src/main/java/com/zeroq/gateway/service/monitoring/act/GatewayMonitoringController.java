@@ -26,12 +26,19 @@ public class GatewayMonitoringController {
     private final CommandPullSyncService commandPullSyncService;
     private final CommandAckSyncService commandAckSyncService;
 
+    /**
+     * ingest·command·ACK 큐 적체와 클라우드 통신 지표를 로컬 운영자에게 제공한다.
+     */
     @GetMapping("/queue-status")
     public ResponseDataDTO<GatewayQueueStatusResponse> getQueueStatus(HttpServletRequest httpServletRequest) {
         gatewayApiKeyGuard.requireGatewayApiKey(httpServletRequest);
         return ResponseDataDTO.of(gatewayMonitoringService.getQueueStatus(), "게이트웨이 큐 상태 조회 완료");
     }
 
+    /**
+     * 대기 ingest 전송, command pull, ACK 전송을 순서대로 즉시 한 번 실행한다.
+     * 비동기 작업 등록이 아니라 현재 요청 스레드에서 각 동기화 메서드를 호출한다.
+     */
     @PostMapping("/sync-now")
     public ResponseDataDTO<SyncNowResponse> syncNow(HttpServletRequest httpServletRequest) {
         gatewayApiKeyGuard.requireGatewayApiKey(httpServletRequest);

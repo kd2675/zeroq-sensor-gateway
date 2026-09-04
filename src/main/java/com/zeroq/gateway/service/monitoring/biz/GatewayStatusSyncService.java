@@ -25,6 +25,10 @@ public class GatewayStatusSyncService {
     private final GatewayCloudRuntimeMetricsService gatewayCloudRuntimeMetricsService;
     private final CloudSensorApiClient cloudSensorApiClient;
 
+    /**
+     * 로컬 큐와 최근 클라우드 호출 지표로 ONLINE/WARNING/OFFLINE을 판정해 heartbeat를 전송한다.
+     * 상태 전송 실패는 로컬 수집을 막지 않고 다음 주기에 재평가한다.
+     */
     @Scheduled(fixedDelayString = "${gateway.sync.status-fixed-delay-ms:15000}")
     public void pushGatewayStatus() {
         GatewayQueueStatusResponse queueStatus = gatewayMonitoringService.getQueueStatus();

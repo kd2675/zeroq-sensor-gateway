@@ -27,6 +27,9 @@ public class CloudSensorApiClient {
     private final GatewayNodeProperties gatewayNodeProperties;
     private final GatewayCloudRuntimeMetricsService gatewayCloudRuntimeMetricsService;
 
+    /**
+     * 서명된 내부 경로로 telemetry·heartbeat 배치를 전송하고 항목별 처리 건수를 반환한다.
+     */
     public CloudBatchResponse postBatchIngest(List<GatewayTelemetryBuffer> telemetries, List<GatewayHeartbeatBuffer> heartbeats) {
         CloudBatchRequest request = new CloudBatchRequest();
         request.setGatewayId(gatewayNodeProperties.getGatewayId());
@@ -53,6 +56,7 @@ public class CloudSensorApiClient {
         }
     }
 
+    /** 배치 부분 실패 복구에 사용하는 단일 telemetry 전송 경로다. */
     public void postTelemetry(GatewayTelemetryBuffer telemetry) {
         long startedAt = System.nanoTime();
         try {
@@ -68,6 +72,7 @@ public class CloudSensorApiClient {
         }
     }
 
+    /** 배치 부분 실패 복구에 사용하는 단일 heartbeat 전송 경로다. */
     public void postHeartbeat(GatewayHeartbeatBuffer heartbeat) {
         long startedAt = System.nanoTime();
         try {
@@ -83,6 +88,9 @@ public class CloudSensorApiClient {
         }
     }
 
+    /**
+     * 관리 센서의 미완료 명령을 조회하면서 클라우드 PENDING 명령을 SENT로 표시한다.
+     */
     public List<CloudPendingCommand> getPendingCommands(String sensorId) {
         long startedAt = System.nanoTime();
         try {
@@ -107,6 +115,7 @@ public class CloudSensorApiClient {
         }
     }
 
+    /** 로컬 ACK outbox 항목을 클라우드 command 상태 전이 API에 전달한다. */
     public void ackCommand(Long commandId, LocalCommandAckRequest request) {
         CloudAckRequest ackRequest = CloudAckRequest.builder()
                 .status(request.getStatus())
@@ -129,6 +138,7 @@ public class CloudSensorApiClient {
         }
     }
 
+    /** 게이트웨이 heartbeat와 큐·네트워크 지표를 클라우드 최신 상태 원장에 전달한다. */
     public void postGatewayStatus(CloudGatewayStatus request) {
         long startedAt = System.nanoTime();
         try {

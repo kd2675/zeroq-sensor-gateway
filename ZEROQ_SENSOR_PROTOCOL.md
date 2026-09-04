@@ -81,9 +81,10 @@ gateway는 `sensorFault=1`인 패킷을 `confidence=0.0`으로 저장한다. 최
 - 펌웨어 `ZEROQ_SENSOR_KEY_HEX`, scanner `ZEROQ_BLE_SENSOR_KEYS_JSON`, Java gateway `gateway.ble.sensor-keys`가 같은 키를 사용한다.
 - scanner는 `ZEROQ_BLE_SENSOR_ADDRESSES_JSON`이 설정되면 sensorId별 기대 BLE 주소도 비교한다.
 - Java gateway는 scanner가 보낸 `macAddress`와 기존 sensorId-MAC 바인딩이 바뀌면 수집을 거부한다.
+- protocol v3 local HTTP 요청에는 `macAddress`가 필수다.
 - 예제의 공개 기본 키를 설치 장비에서 사용하지 않는다.
 
-SipHash 태그는 24바이트 legacy advertising 제한에 맞춰 32비트로 잘랐다. 우발적 손상과 단순 ID 사칭을 줄이는 파일럿 장치이지만, 장기 키 노출·재전송 공격·강한 위조 방지·기밀성을 해결하지 않는다. 양산 설계는 연결형 암호화, 키 교체, boot/session nonce와 영속 sequence를 포함해야 한다.
+SipHash 태그는 24바이트 legacy advertising 제한에 맞춰 32비트로 잘랐다. 우발적 손상과 단순 ID 사칭을 줄이는 파일럿 장치이지만, 장기 키 노출·재전송 공격·강한 위조 방지·기밀성을 해결하지 않는다. BLE 주소 결합도 위조 가능한 운영상 보조 검사다. 양산 설계는 연결형 암호화, 키 교체, boot/session nonce와 영속 sequence를 포함해야 한다.
 
 Protocol v1/v2는 `allow-legacy-unsigned=true`로 명시한 마이그레이션 환경에서만 decode한다. 기본값은 `false`다. v1의 reserved flags는 v2 의미로 해석하지 않는다.
 
@@ -118,9 +119,9 @@ X-Gateway-Key: <local gateway API key>
 
 - `payloadHex`: 필수 protocol v3 payload
 - `observedAt`: scanner가 생성한 UTC 관측 시각
-- `placeId`: 선택. 고정 매핑이 있으면 scanner가 전달한다.
+- `placeId`: 필수. scanner 설치 매핑의 양의 공간 ID를 전달하며, local gateway와 cloud sensor server가 센서 배정값을 검증한다.
 - `rssi`: 선택
-- `macAddress`: 실제 BLE 주소. 주소 매핑과 Java sensorId 바인딩에 사용한다.
+- `macAddress`: protocol v3에서 필수인 관측 BLE 주소. 주소 매핑과 Java sensorId 바인딩에 사용한다.
 
 local API key는 scanner 환경 파일과 gateway `gateway.node.local-api-key`가 같아야 한다.
 
@@ -151,10 +152,11 @@ Python scanner와 Java gateway는 다음을 거부한다.
 |---|---|---|
 | `SET_THRESHOLD` | `enterMm,exitMm` | 40~4000mm, enter < exit 검사 후 RAM 반영 |
 | `SET_SAMPLE_INTERVAL` | `200`~`60000` | 측정 간격(ms)을 RAM 반영 |
-| `SYNC_TIME` | 빈 값 | gateway 관측 UTC가 기준임을 ACK |
 | `REBOOT` | 빈 값 | ACK 후 재부팅 |
 
-설정값은 현재 flash에 영속화하지 않는다. scanner는 `PENDING_DISPATCH`와 `DISPATCHED`를 다시 조회하고 센서가 같은 commandId를 받으면 마지막 ACK를 재전송하므로, ACK 유실 뒤에도 명령을 안전하게 재시도할 수 있다.
+설정값은 현재 flash에 영속화하지 않는다. command ID 범위는 `1..4294967295`다. scanner는 `PENDING_DISPATCH`와 `DISPATCHED`를 다시 조회하고 센서가 같은 commandId를 받으면 마지막 ACK를 재전송한다. 한 센서의 명령 처리에 실패하면 같은 polling 회차의 후속 명령을 보류해 이 단일 ACK 캐시가 덮이지 않도록 한다. 재부팅하면 ACK 캐시는 사라지므로 정확히 한 번 실행을 보장하는 계약은 아니다.
+
+현재 GATT characteristic은 pairing을 강제하지 않고 command payload에 별도 MAC이나 nonce도 없다. advertising v3 인증이 downlink를 보호하지 않으므로 이 명령 계약은 통제된 파일럿 환경에서만 사용한다.
 
 ## 10. Cloud gateway 인증
 

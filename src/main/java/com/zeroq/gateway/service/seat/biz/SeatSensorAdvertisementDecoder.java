@@ -27,6 +27,10 @@ public class SeatSensorAdvertisementDecoder {
     private static final int MAX_DISTANCE_MM = 4000;
     private final GatewayBleProperties gatewayBleProperties;
 
+    /**
+     * 22바이트 legacy 또는 24바이트 인증형 BLE 광고를 엄격히 해석한다.
+     * v2는 CRC, v3는 센서별 SipHash 태그와 거리 모드를 검증한 뒤 unsigned 필드를 변환한다.
+     */
     public DecodedSeatSensorAdvertisement decode(String payloadHex) {
         byte[] bytes = decodeHex(payloadHex);
         if (bytes.length != LEGACY_BYTES && bytes.length != AUTHENTICATED_BYTES) {
@@ -103,6 +107,7 @@ public class SeatSensorAdvertisementDecoder {
                 .build();
     }
 
+    /** v3 payload 앞 20바이트의 센서별 SipHash 태그 하위 32비트를 검증한다. */
     private void validateAuthenticationTag(String sensorId, byte[] bytes) {
         byte[] key = gatewayBleProperties.requireSensorKey(sensorId);
         long expectedTag = SipHash24.hash(key, bytes, 20) & 0xffffffffL;

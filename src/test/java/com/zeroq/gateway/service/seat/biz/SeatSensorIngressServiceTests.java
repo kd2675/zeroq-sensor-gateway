@@ -16,6 +16,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -155,6 +157,27 @@ class SeatSensorIngressServiceTests {
         ArgumentCaptor<LocalTelemetryRequest> captor = ArgumentCaptor.forClass(LocalTelemetryRequest.class);
         verify(localSensorIngestService).ingestTelemetry(captor.capture());
         assertThat(captor.getValue().getConfidence()).isEqualTo(0.0);
+    }
+
+    @Test
+    void ingestAdvertisement_protocolVersionThreeWithoutBleAddress_rejectsUnboundIdentity() {
+        SeatSensorAdvertisementRequest request = request(LocalDateTime.of(2026, 9, 3, 1, 2, 3));
+        request.setMacAddress(null);
+        when(seatSensorAdvertisementDecoder.decode(request.getPayloadHex())).thenReturn(
+                DecodedSeatSensorAdvertisement.builder()
+                        .protocolVersion(3)
+                        .sensorId("SPOT-014")
+                        .distanceMode(true)
+                        .distanceMm(742)
+                        .batteryPercent(80)
+                        .sequenceNo(1200L)
+                        .build()
+        );
+
+        assertThatThrownBy(() -> seatSensorIngressService.ingestAdvertisement(request))
+                .isInstanceOf(com.zeroq.gateway.common.exception.GatewayException.ValidationException.class)
+                .hasMessageContaining("macAddress is required");
+        verify(localSensorIngestService, never()).ingestTelemetry(org.mockito.ArgumentMatchers.any());
     }
 
     private SeatSensorAdvertisementRequest request(LocalDateTime observedAt) {

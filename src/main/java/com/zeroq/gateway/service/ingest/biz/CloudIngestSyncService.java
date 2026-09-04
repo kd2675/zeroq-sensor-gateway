@@ -28,6 +28,10 @@ public class CloudIngestSyncService {
     private final GatewayHeartbeatBufferRepository gatewayHeartbeatBufferRepository;
     private final CloudSensorApiClient cloudSensorApiClient;
 
+    /**
+     * PENDING/FAILED 로컬 버퍼를 먼저 cloud batch API로 전송한다.
+     * 배치 응답이 부분 성공이거나 호출이 실패하면 항목별 전송으로 내려가 성공 건과 실패 건을 분리한다.
+     */
     @Scheduled(fixedDelayString = "${gateway.sync.ingest-fixed-delay-ms:5000}")
     @Transactional
     public void flushPendingBuffers() {

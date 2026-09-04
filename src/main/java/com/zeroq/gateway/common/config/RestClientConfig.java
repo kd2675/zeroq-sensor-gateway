@@ -14,6 +14,10 @@ import java.util.UUID;
 @Configuration
 public class RestClientConfig {
 
+    /**
+     * 클라우드 센서 API 전용 클라이언트를 만든다. 공유 비밀이 설정된 경우
+     * 직렬화된 요청 본문과 query 포함 경로를 기준으로 매 요청을 HMAC 서명한다.
+     */
     @Bean
     public RestClient cloudRestClient(
             GatewayCloudProperties cloudProperties,

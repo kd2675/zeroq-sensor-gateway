@@ -1,6 +1,8 @@
 package com.zeroq.gateway.service.seat.vo;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -13,6 +15,8 @@ public class SeatSensorAdvertisementRequest {
     private String payloadHex;
 
     private LocalDateTime observedAt;
+    @NotNull
+    @Positive
     private Long placeId;
     private Integer rssi;
     private String macAddress;

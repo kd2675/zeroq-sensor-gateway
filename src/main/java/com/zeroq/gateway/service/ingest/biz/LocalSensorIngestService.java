@@ -4,10 +4,8 @@ import com.zeroq.gateway.common.config.GatewayNodeProperties;
 import com.zeroq.gateway.common.exception.GatewayException;
 import com.zeroq.gateway.database.pub.entity.BufferSyncStatus;
 import com.zeroq.gateway.database.pub.entity.GatewayHeartbeatBuffer;
-import com.zeroq.gateway.database.pub.entity.GatewayManagedSensor;
 import com.zeroq.gateway.database.pub.entity.GatewayTelemetryBuffer;
 import com.zeroq.gateway.database.pub.repository.GatewayHeartbeatBufferRepository;
-import com.zeroq.gateway.database.pub.repository.GatewayManagedSensorRepository;
 import com.zeroq.gateway.database.pub.repository.GatewayTelemetryBufferRepository;
 import com.zeroq.gateway.service.ingest.vo.LocalBatchIngestRequest;
 import com.zeroq.gateway.service.ingest.vo.LocalHeartbeatRequest;
@@ -25,10 +23,15 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class LocalSensorIngestService {
     private final GatewayNodeProperties gatewayNodeProperties;
-    private final GatewayManagedSensorRepository gatewayManagedSensorRepository;
     private final GatewayTelemetryBufferRepository gatewayTelemetryBufferRepository;
     private final GatewayHeartbeatBufferRepository gatewayHeartbeatBufferRepository;
+    private final GatewayBufferPersistenceService gatewayBufferPersistenceService;
+    private final GatewayManagedSensorPersistenceService gatewayManagedSensorPersistenceService;
 
+    /**
+     * 로컬 입력을 검증하고 관리 센서 원장을 갱신한 뒤 PENDING telemetry 버퍼에 저장한다.
+     * 애플리케이션 선조회와 DB unique key를 함께 사용해 동시 중복도 무시한다.
+     */
     @Transactional
     public LocalIngestResponse ingestTelemetry(LocalTelemetryRequest request) {
         validateTelemetryPayload(request);
@@ -63,7 +66,7 @@ public class LocalSensorIngestService {
                 .build();
 
         try {
-            gatewayTelemetryBufferRepository.save(buffer);
+            gatewayBufferPersistenceService.saveTelemetry(buffer);
         } catch (DataIntegrityViolationException ex) {
             log.debug("Duplicate telemetry dropped by unique key. sensorId={}, sequenceNo={}, measuredAt={}",
                     request.getSensorId(), request.getSequenceNo(), request.getMeasuredAt());
@@ -81,6 +84,9 @@ public class LocalSensorIngestService {
                 .build();
     }
 
+    /**
+     * heartbeat를 sensorId·heartbeatAt 기준으로 멱등 버퍼링한다.
+     */
     @Transactional
     public LocalIngestResponse ingestHeartbeat(LocalHeartbeatRequest request) {
         upsertManagedSensor(request.getSensorId(), request.getPlaceId(), request.getMacAddress());
@@ -108,7 +114,7 @@ public class LocalSensorIngestService {
                 .build();
 
         try {
-            gatewayHeartbeatBufferRepository.save(buffer);
+            gatewayBufferPersistenceService.saveHeartbeat(buffer);
         } catch (DataIntegrityViolationException ex) {
             log.debug("Duplicate heartbeat dropped by unique key. sensorId={}, heartbeatAt={}",
                     request.getSensorId(), request.getHeartbeatAt());
@@ -126,6 +132,9 @@ public class LocalSensorIngestService {
                 .build();
     }
 
+    /**
+     * 단일 수집 메서드를 재사용해 배치의 수락·중복 건수를 합산한다.
+     */
     @Transactional
     public LocalIngestResponse ingestBatch(LocalBatchIngestRequest request) {
         int telemetryAccepted = 0;
@@ -176,42 +185,13 @@ public class LocalSensorIngestService {
     }
 
     private void upsertManagedSensor(String sensorId, Long placeId, String macAddress) {
-        GatewayManagedSensor managedSensor = gatewayManagedSensorRepository.findBySensorId(sensorId)
-                .orElseGet(() -> GatewayManagedSensor.builder()
-                        .sensorId(sensorId)
-                        .active(true)
-                        .build());
-
-        String normalizedMacAddress = normalizeMacAddress(macAddress);
-        if (normalizedMacAddress != null) {
-            if (managedSensor.getMacAddress() != null
-                    && !managedSensor.getMacAddress().equals(normalizedMacAddress)) {
-                throw new GatewayException.ValidationException("Sensor BLE address changed for sensorId: " + sensorId);
-            }
-            gatewayManagedSensorRepository.findByMacAddress(normalizedMacAddress).ifPresent(owner -> {
-                if (!owner.getSensorId().equals(sensorId)) {
-                    throw new GatewayException.ValidationException("BLE address is already assigned to another sensor");
-                }
-            });
-            managedSensor.setMacAddress(normalizedMacAddress);
+        if (placeId == null || placeId <= 0) {
+            throw new GatewayException.ValidationException("placeId must be a positive value");
         }
-
-        if (placeId != null) {
-            managedSensor.setPlaceId(placeId);
+        try {
+            gatewayManagedSensorPersistenceService.upsert(sensorId, placeId, macAddress);
+        } catch (DataIntegrityViolationException ex) {
+            gatewayManagedSensorPersistenceService.upsert(sensorId, placeId, macAddress);
         }
-        managedSensor.setActive(true);
-
-        gatewayManagedSensorRepository.save(managedSensor);
-    }
-
-    private String normalizeMacAddress(String macAddress) {
-        if (macAddress == null || macAddress.isBlank()) {
-            return null;
-        }
-        String normalized = macAddress.trim().toUpperCase().replace('-', ':');
-        if (!normalized.matches("[0-9A-F]{2}(:[0-9A-F]{2}){5}")) {
-            throw new GatewayException.ValidationException("macAddress must use AA:BB:CC:DD:EE:FF format");
-        }
-        return normalized;
     }
 }

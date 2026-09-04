@@ -21,6 +21,7 @@ public class GatewayCommandService {
     private final GatewayCommandBufferRepository gatewayCommandBufferRepository;
     private final GatewayCommandAckOutboxRepository gatewayCommandAckOutboxRepository;
 
+    /** 장치 전달 전·후이지만 최종 ACK 전인 로컬 명령을 최대 100개 조회한다. */
     public List<GatewayCommandResponse> getPendingCommands(int limit) {
         int capped = Math.max(1, Math.min(limit, 100));
         return gatewayCommandBufferRepository.findTop100ByCommandStatusInOrderByRequestedAtAsc(
@@ -34,6 +35,7 @@ public class GatewayCommandService {
                 .toList();
     }
 
+    /** 로컬 장치 전달 완료 시각과 DISPATCHED 상태를 기록한다. */
     @Transactional
     public GatewayCommandResponse markDispatched(Long cloudCommandId) {
         GatewayCommandBuffer command = gatewayCommandBufferRepository.findByCloudCommandId(cloudCommandId)
@@ -50,6 +52,9 @@ public class GatewayCommandService {
         return GatewayCommandResponse.from(command);
     }
 
+    /**
+     * 허용된 최종 상태를 검증한 뒤 ACK outbox 생성과 command 상태 변경을 한 트랜잭션에 묶는다.
+     */
     @Transactional
     public GatewayCommandResponse enqueueLocalAck(Long cloudCommandId, LocalCommandAckRequest request) {
         GatewayCommandBuffer command = gatewayCommandBufferRepository.findByCloudCommandId(cloudCommandId)

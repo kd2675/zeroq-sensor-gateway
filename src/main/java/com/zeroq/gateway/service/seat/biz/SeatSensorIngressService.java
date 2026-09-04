@@ -1,5 +1,6 @@
 package com.zeroq.gateway.service.seat.biz;
 
+import com.zeroq.gateway.common.exception.GatewayException;
 import com.zeroq.gateway.service.ingest.biz.LocalSensorIngestService;
 import com.zeroq.gateway.service.ingest.vo.LocalHeartbeatRequest;
 import com.zeroq.gateway.service.ingest.vo.LocalIngestResponse;
@@ -20,9 +21,19 @@ public class SeatSensorIngressService {
     private final SeatSensorAdvertisementDecoder seatSensorAdvertisementDecoder;
     private final LocalSensorIngestService localSensorIngestService;
 
+    /**
+     * 검증된 BLE 광고를 표준 로컬 telemetry로 변환하고 heartbeat 플래그가 있으면 heartbeat도 저장한다.
+     * v3는 인증 태그의 sensorId와 실제 스캔 장치 주소를 함께 결속하기 위해 macAddress를 요구한다.
+     */
     @Transactional
     public LocalIngestResponse ingestAdvertisement(SeatSensorAdvertisementRequest request) {
         DecodedSeatSensorAdvertisement decoded = seatSensorAdvertisementDecoder.decode(request.getPayloadHex());
+        if (decoded.getProtocolVersion() == 3
+                && (request.getMacAddress() == null || request.getMacAddress().isBlank())) {
+            throw new GatewayException.ValidationException(
+                    "macAddress is required for authenticated BLE protocol v3 identity binding"
+            );
+        }
         LocalDateTime measuredAt = resolveMeasuredAt(request, decoded);
 
         LocalTelemetryRequest telemetryRequest = new LocalTelemetryRequest();
@@ -64,6 +75,9 @@ public class SeatSensorIngressService {
                 .build();
     }
 
+    /**
+     * epoch를 담는 v1만 장치 측정 시각을 사용하고, uptime을 담는 v2/v3는 스캐너 관측 UTC를 사용한다.
+     */
     private LocalDateTime resolveMeasuredAt(
             SeatSensorAdvertisementRequest request,
             DecodedSeatSensorAdvertisement decoded

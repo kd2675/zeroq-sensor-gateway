@@ -38,6 +38,7 @@ out/
 
 # Project exclude paths
 /logs/
+/data/
 AGENTS*
 
 # Environment secrets

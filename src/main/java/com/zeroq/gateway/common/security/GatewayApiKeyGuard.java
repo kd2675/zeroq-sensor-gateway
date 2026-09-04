@@ -13,6 +13,10 @@ public class GatewayApiKeyGuard {
 
     private final GatewayNodeProperties gatewayNodeProperties;
 
+    /**
+     * 로컬 장비 API를 설정된 X-Gateway-Key와 정확히 일치하는 호출로 제한한다.
+     * 이 키는 클라우드 HMAC 서명과 별개의 로컬 접근 제어다.
+     */
     public void requireGatewayApiKey(HttpServletRequest request) {
         String key = request.getHeader(GATEWAY_KEY_HEADER);
         if (key == null || key.isBlank()) {

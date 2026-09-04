@@ -20,6 +20,10 @@ public class SeatSensorIngressController {
     private final GatewayApiKeyGuard gatewayApiKeyGuard;
     private final SeatSensorIngressService seatSensorIngressService;
 
+    /**
+     * BLE scanner가 전달한 광고 hex를 검증·해석해 로컬 telemetry/heartbeat 버퍼로 변환한다.
+     * 로컬 API key는 프로세스 접근 제어이며 BLE v3 장치 인증 태그 검증을 대체하지 않는다.
+     */
     @PostMapping("/advertisement")
     public ResponseDataDTO<LocalIngestResponse> ingestAdvertisement(
             @Valid @RequestBody SeatSensorAdvertisementRequest request,

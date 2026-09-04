@@ -27,6 +27,10 @@ public class CommandAckSyncService {
     private final GatewayCommandBufferRepository gatewayCommandBufferRepository;
     private final CloudSensorApiClient cloudSensorApiClient;
 
+    /**
+     * 로컬 ACK outbox를 클라우드로 재전송하고 성공 시 command 상태를 최종 상태로 맞춘다.
+     * 실패 건은 retryCount와 오류를 남겨 다음 주기에 다시 시도한다.
+     */
     @Scheduled(fixedDelayString = "${gateway.sync.ack-fixed-delay-ms:5000}")
     @Transactional
     public void flushPendingAcks() {

@@ -10,6 +10,10 @@ import java.util.HexFormat;
 
 @Component
 public class GatewayServiceRequestSigner {
+    /**
+     * gatewayId, HTTP 메서드, query 포함 경로, timestamp, nonce, 본문 SHA-256을
+     * 줄바꿈으로 결합해 클라우드와 동일한 HMAC-SHA256 서명을 만든다.
+     */
     public String sign(
             String gatewayId,
             String httpMethod,
@@ -37,6 +41,7 @@ public class GatewayServiceRequestSigner {
         }
     }
 
+    /** 직렬화가 끝난 실제 요청 body 바이트의 SHA-256 hex를 계산한다. */
     public String sha256Hex(byte[] body) {
         try {
             return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(body));
