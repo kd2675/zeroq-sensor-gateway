@@ -1,4 +1,8 @@
 spring:
+  config:
+    import:
+      - optional:file:.env[.properties]
+      - optional:file:zeroq-sensor-gateway/.env[.properties]
   application:
     name: zeroq-sensor-gateway
   profiles:

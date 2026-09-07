@@ -1,5 +1,11 @@
 # zeroq-sensor-gateway
 
+## 로컬 환경 파일
+
+이 프로젝트의 `.env.example`/`.env`에 노드 ID, 로컬 API 키, Cloud HMAC 키를 설정합니다. local은 `127.0.0.1:20191`에 바인딩합니다. 스캐너는 같은 로컬 API 키를 사용해야 하며 실제 BLE 센서별 키는 별도 등록합니다.
+
+전체 포트·프로필·설정 검증은 워크스페이스의 [로컬 환경 가이드](../LOCAL_DEVELOPMENT.md)를 따릅니다. 기존 개인 환경 파일은 덮어쓰지 않습니다.
+
 매장 로컬 센서망과 ZeroQ 클라우드 센서 서버 사이를 연결하는 엣지 게이트웨이입니다. 로컬 ingest 버퍼, command pull, ACK outbox, gateway runtime status sync를 담당합니다.
 
 ## 역할
